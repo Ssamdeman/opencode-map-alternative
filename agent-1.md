@@ -1,0 +1,1 @@
+Human: the main bridge between agents. Main decision maker but also the connect litarelly like I will copy paste it to the other agents betwen other agents connecting them copy pasting. Human also is the  

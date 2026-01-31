@@ -1,0 +1,20 @@
+{
+    "name": "OpenCode Dev",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "remoteUser": "root",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "oven.bun-vscode",
+                "esbenp.prettier-vscode",
+                "ms-vscode.powershell"
+            ]
+        }
+    },
+    "postCreateCommand": "pwsh -c 'Write-Host \"Container Ready! Run ./build.ps1 to start.\"'",
+    "runArgs": [
+        "--name=opencode-dev"
+    ]
+}

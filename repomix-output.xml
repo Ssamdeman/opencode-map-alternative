@@ -40,6 +40,8 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
+.devcontainer/devcontainer.json
+.devcontainer/Dockerfile
 .editorconfig
 .github/actions/setup-bun/action.yml
 .github/CODEOWNERS
@@ -95,7 +97,11 @@ The content is organized as follows:
 .opencode/tool/github-triage.ts
 .opencode/tool/github-triage.txt
 .prettierignore
+agen-2.md
+agen-3.md
+agent-1.md
 AGENTS.md
+build.ps1
 bunfig.toml
 CONTRIBUTING.md
 flake.lock
@@ -274234,6 +274240,65 @@ export default $config({
 }
 </file>
 
+<file path=".devcontainer/devcontainer.json">
+{
+    "name": "OpenCode Dev",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "remoteUser": "root",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "oven.bun-vscode",
+                "esbenp.prettier-vscode",
+                "ms-vscode.powershell"
+            ]
+        }
+    },
+    "postCreateCommand": "pwsh -c 'Write-Host \"Container Ready! Run ./build.ps1 to start.\"'",
+    "runArgs": [
+        "--name=opencode-dev"
+    ]
+}
+</file>
+
+<file path=".devcontainer/Dockerfile">
+FROM ubuntu:24.04
+
+# Avoid prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update & Install Common Tools + PowerShell Dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    unzip \
+    wget \
+    nano \
+    sudo \
+    apt-transport-https \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PowerShell (pwsh)
+RUN wget -q "https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb" \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y powershell
+
+# Install Bun
+ENV BUN_INSTALL=/usr/local
+RUN curl -fsSL https://bun.sh/install | bash
+
+# Ensure Bun is in path for all shells
+ENV PATH=$BUN_INSTALL/bin:$PATH
+
+# Set working directory
+WORKDIR /workspace
+</file>
+
 <file path=".github/workflows/publish.yml">
 name: publish
 run-name: "${{ format('release {0}', inputs.bump) }}"
@@ -274489,6 +274554,90 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           NPM_CONFIG_PROVENANCE: false
+</file>
+
+<file path="agen-2.md">
+
+</file>
+
+<file path="agen-3.md">
+
+</file>
+
+<file path="agent-1.md">
+Human: the main bridge between agents. Main decision maker but also the connect litarelly like I will copy paste it to the other agents betwen other agents connecting them copy pasting. Human also is the
+</file>
+
+<file path="build.ps1">
+<#
+.SYNOPSIS
+    Builds and starts the OpenCode TUI environment.
+.DESCRIPTION
+    Installs dependencies, cleans "ghost" data if requested, and launches the TUI.
+.PARAMETER Clean
+    If set, deletes local .opencode data, cache, and dist folders to ensure a fresh start.
+#>
+param (
+    [switch]$Clean
+)
+
+$ErrorActionPreference = "Stop"
+
+function Write-Step {
+    param([string]$Message)
+    Write-Host "`n--> $Message" -ForegroundColor Cyan
+}
+
+# 1. CLEANUP (Ghost Data & Cache)
+if ($Clean) {
+    Write-Step "Cleaning local data and build artifacts..."
+
+    $targets = @(
+        ".opencode",              # Local session data/config
+        "dist",                   # Root build artifacts
+        "packages/opencode/dist", # CLI specific build artifacts
+        "packages/app/dist"       # Web specific build artifacts
+    )
+
+    foreach ($target in $targets) {
+        if (Test-Path $target) {
+            Write-Host "  Removing $target..." -ForegroundColor Gray
+            Remove-Item $target -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Optional: Clean global cache if you really want a 100% fresh brain
+    # Uncomment if you want to wipe global settings too
+    # $globalConfig = "$env:USERPROFILE/.opencode"
+    # if (Test-Path $globalConfig) { Remove-Item $globalConfig -Recurse -Force }
+
+    Write-Host "  Cleanup complete." -ForegroundColor Green
+}
+
+# 2. DEPENDENCIES
+Write-Step "Checking dependencies..."
+if (-not (Get-Command "bun" -ErrorAction SilentlyContinue)) {
+    Write-Error "Bun is not installed. Please run: powershell -c 'irm bun.sh/install.ps1 | iex'"
+}
+
+Write-Step "Installing packages..."
+bun install
+
+# 3. BUILD & START
+Write-Step "Starting OpenCode TUI (Dev Mode)..."
+
+# This runs the TUI directly from source
+# If 'bun dev' in root doesn't target the TUI specifically, we target the CLI package directly
+try {
+    # Attempting root dev script first
+    bun dev
+}
+catch {
+    Write-Warning "Root 'dev' script failed or missing. Attempting direct CLI launch..."
+    # Fallback: Run the CLI package dev script directly
+    Set-Location "packages/opencode"
+    bun dev
+}
 </file>
 
 <file path="packages/app/e2e/file-tree.spec.ts">
@@ -342872,672 +343021,6 @@ export type EventSubscribeResponse = EventSubscribeResponses[keyof EventSubscrib
 }
 </file>
 
-<file path="packages/console/app/package.json">
-{
-  "name": "@opencode-ai/console-app",
-  "version": "0.0.0-ci-202601291718",
-  "type": "module",
-  "license": "MIT",
-  "scripts": {
-    "typecheck": "tsgo --noEmit",
-    "dev": "vite dev --host 0.0.0.0",
-    "dev:remote": "VITE_AUTH_URL=https://auth.dev.opencode.ai VITE_STRIPE_PUBLISHABLE_KEY=pk_test_51RtuLNE7fOCwHSD4mewwzFejyytjdGoSDK7CAvhbffwaZnPbNb2rwJICw6LTOXCmWO320fSNXvb5NzI08RZVkAxd00syfqrW7t bun sst shell --stage=dev bun dev",
-    "build": "./script/generate-sitemap.ts && vite build && ../../opencode/script/schema.ts ./.output/public/config.json",
-    "start": "vite start"
-  },
-  "dependencies": {
-    "@cloudflare/vite-plugin": "1.15.2",
-    "@ibm/plex": "6.4.1",
-    "@jsx-email/render": "1.1.1",
-    "@kobalte/core": "catalog:",
-    "@openauthjs/openauth": "catalog:",
-    "@opencode-ai/console-core": "workspace:*",
-    "@opencode-ai/console-mail": "workspace:*",
-    "@opencode-ai/console-resource": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
-    "@smithy/eventstream-codec": "4.2.7",
-    "@smithy/util-utf8": "4.2.0",
-    "@solidjs/meta": "catalog:",
-    "@solidjs/router": "catalog:",
-    "@solidjs/start": "catalog:",
-    "@stripe/stripe-js": "8.6.1",
-    "chart.js": "4.5.1",
-    "nitro": "3.0.1-alpha.1",
-    "solid-js": "catalog:",
-    "solid-list": "0.3.0",
-    "solid-stripe": "0.8.1",
-    "vite": "catalog:",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@typescript/native-preview": "catalog:",
-    "@webgpu/types": "0.1.54",
-    "typescript": "catalog:",
-    "wrangler": "4.50.0"
-  },
-  "engines": {
-    "node": ">=22"
-  }
-}
-</file>
-
-<file path="packages/console/core/package.json">
-{
-  "$schema": "https://json.schemastore.org/package.json",
-  "name": "@opencode-ai/console-core",
-  "version": "0.0.0-ci-202601291718",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "dependencies": {
-    "@aws-sdk/client-sts": "3.782.0",
-    "@jsx-email/render": "1.1.1",
-    "@opencode-ai/console-mail": "workspace:*",
-    "@opencode-ai/console-resource": "workspace:*",
-    "@planetscale/database": "1.19.0",
-    "aws4fetch": "1.0.20",
-    "drizzle-orm": "0.41.0",
-    "postgres": "3.4.7",
-    "stripe": "18.0.0",
-    "ulid": "catalog:",
-    "zod": "catalog:"
-  },
-  "exports": {
-    "./*": "./src/*"
-  },
-  "scripts": {
-    "db": "sst shell drizzle-kit",
-    "db-dev": "sst shell --stage dev -- drizzle-kit",
-    "db-prod": "sst shell --stage production -- drizzle-kit",
-    "shell": "sst shell -- bun",
-    "shell-dev": "sst shell --stage dev -- bun",
-    "shell-prod": "sst shell --stage production -- bun",
-    "update-models": "script/update-models.ts",
-    "promote-models-to-dev": "script/promote-models.ts dev",
-    "promote-models-to-prod": "script/promote-models.ts production",
-    "pull-models-from-dev": "script/pull-models.ts dev",
-    "pull-models-from-prod": "script/pull-models.ts production",
-    "update-black": "script/update-black.ts",
-    "promote-black-to-dev": "script/promote-black.ts dev",
-    "promote-black-to-prod": "script/promote-black.ts production",
-    "typecheck": "tsgo --noEmit"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "catalog:",
-    "@tsconfig/node22": "22.0.2",
-    "@types/bun": "1.3.0",
-    "@types/node": "catalog:",
-    "drizzle-kit": "0.30.5",
-    "mysql2": "3.14.4",
-    "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:"
-  }
-}
-</file>
-
-<file path="packages/console/function/package.json">
-{
-  "name": "@opencode-ai/console-function",
-  "version": "0.0.0-ci-202601291718",
-  "$schema": "https://json.schemastore.org/package.json",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "scripts": {
-    "typecheck": "tsgo --noEmit"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "catalog:",
-    "@tsconfig/node22": "22.0.2",
-    "@types/node": "catalog:",
-    "openai": "5.11.0",
-    "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:"
-  },
-  "dependencies": {
-    "@ai-sdk/anthropic": "2.0.0",
-    "@ai-sdk/openai": "2.0.2",
-    "@ai-sdk/openai-compatible": "1.0.1",
-    "@hono/zod-validator": "catalog:",
-    "@opencode-ai/console-core": "workspace:*",
-    "@opencode-ai/console-resource": "workspace:*",
-    "@openauthjs/openauth": "0.0.0-20250322224806",
-    "ai": "catalog:",
-    "hono": "catalog:",
-    "zod": "catalog:"
-  }
-}
-</file>
-
-<file path="packages/console/mail/package.json">
-{
-  "name": "@opencode-ai/console-mail",
-  "version": "0.0.0-ci-202601291718",
-  "dependencies": {
-    "@jsx-email/all": "2.2.3",
-    "@jsx-email/cli": "1.4.3",
-    "@tsconfig/bun": "1.0.9",
-    "@types/react": "18.0.25",
-    "react": "18.2.0",
-    "solid-js": "catalog:"
-  },
-  "exports": {
-    "./*": "./emails/templates/*"
-  },
-  "$schema": "https://json.schemastore.org/package.json",
-  "private": true,
-  "scripts": {
-    "dev": "email preview emails/templates"
-  },
-  "type": "module",
-  "license": "MIT"
-}
-</file>
-
-<file path="packages/enterprise/package.json">
-{
-  "name": "@opencode-ai/enterprise",
-  "version": "0.0.0-ci-202601291718",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "scripts": {
-    "typecheck": "tsgo --noEmit",
-    "dev": "vite dev",
-    "build": "vite build",
-    "build:cloudflare": "OPENCODE_DEPLOYMENT_TARGET=cloudflare vite build",
-    "start": "vite start",
-    "shell-prod": "sst shell --target Teams --stage production"
-  },
-  "dependencies": {
-    "@opencode-ai/util": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
-    "aws4fetch": "^1.0.20",
-    "@pierre/diffs": "catalog:",
-    "@solidjs/router": "catalog:",
-    "@solidjs/start": "catalog:",
-    "@solidjs/meta": "catalog:",
-    "hono": "catalog:",
-    "hono-openapi": "catalog:",
-    "js-base64": "3.7.7",
-    "luxon": "catalog:",
-    "nitro": "3.0.1-alpha.1",
-    "solid-js": "catalog:",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "catalog:",
-    "@tailwindcss/vite": "catalog:",
-    "@typescript/native-preview": "catalog:",
-    "@types/luxon": "catalog:",
-    "tailwindcss": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:"
-  },
-  "engines": {
-    "node": ">=22"
-  }
-}
-</file>
-
-<file path="packages/extensions/zed/extension.toml">
-id = "opencode"
-name = "OpenCode"
-description = "The open source coding agent."
-version = "0.0.0-ci-202601291718"
-schema_version = 1
-authors = ["Anomaly"]
-repository = "https://github.com/anomalyco/opencode"
-
-[agent_servers.opencode]
-name = "OpenCode"
-icon = "./icons/opencode.svg"
-
-[agent_servers.opencode.targets.darwin-aarch64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-darwin-arm64.zip"
-cmd = "./opencode"
-args = ["acp"]
-
-[agent_servers.opencode.targets.darwin-x86_64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-darwin-x64.zip"
-cmd = "./opencode"
-args = ["acp"]
-
-[agent_servers.opencode.targets.linux-aarch64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-linux-arm64.tar.gz"
-cmd = "./opencode"
-args = ["acp"]
-
-[agent_servers.opencode.targets.linux-x86_64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-linux-x64.tar.gz"
-cmd = "./opencode"
-args = ["acp"]
-
-[agent_servers.opencode.targets.windows-x86_64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-windows-x64.zip"
-cmd = "./opencode.exe"
-args = ["acp"]
-</file>
-
-<file path="packages/function/package.json">
-{
-  "name": "@opencode-ai/function",
-  "version": "0.0.0-ci-202601291718",
-  "$schema": "https://json.schemastore.org/package.json",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "devDependencies": {
-    "@cloudflare/workers-types": "catalog:",
-    "@tsconfig/node22": "22.0.2",
-    "@types/node": "catalog:",
-    "typescript": "catalog:"
-  },
-  "dependencies": {
-    "@octokit/auth-app": "8.0.1",
-    "@octokit/rest": "catalog:",
-    "hono": "catalog:",
-    "jose": "6.0.11"
-  }
-}
-</file>
-
-<file path="packages/opencode/package.json">
-{
-  "$schema": "https://json.schemastore.org/package.json",
-  "version": "0.0.0-ci-202601291718",
-  "name": "opencode",
-  "type": "module",
-  "license": "MIT",
-  "private": true,
-  "scripts": {
-    "typecheck": "tsgo --noEmit",
-    "test": "bun test",
-    "build": "bun run script/build.ts",
-    "dev": "bun run --conditions=browser ./src/index.ts",
-    "random": "echo 'Random script updated at $(date)' && echo 'Change queued successfully' && echo 'Another change made' && echo 'Yet another change' && echo 'One more change' && echo 'Final change' && echo 'Another final change' && echo 'Yet another final change'",
-    "clean": "echo 'Cleaning up...' && rm -rf node_modules dist",
-    "lint": "echo 'Running lint checks...' && bun test --coverage",
-    "format": "echo 'Formatting code...' && bun run --prettier --write src/**/*.ts",
-    "docs": "echo 'Generating documentation...' && find src -name '*.ts' -exec echo 'Processing: {}' \\;",
-    "deploy": "echo 'Deploying application...' && bun run build && echo 'Deployment completed successfully'"
-  },
-  "bin": {
-    "opencode": "./bin/opencode"
-  },
-  "exports": {
-    "./*": "./src/*.ts"
-  },
-  "devDependencies": {
-    "@babel/core": "7.28.4",
-    "@octokit/webhooks-types": "7.6.1",
-    "@opencode-ai/script": "workspace:*",
-    "@parcel/watcher-darwin-arm64": "2.5.1",
-    "@parcel/watcher-darwin-x64": "2.5.1",
-    "@parcel/watcher-linux-arm64-glibc": "2.5.1",
-    "@parcel/watcher-linux-arm64-musl": "2.5.1",
-    "@parcel/watcher-linux-x64-glibc": "2.5.1",
-    "@parcel/watcher-linux-x64-musl": "2.5.1",
-    "@parcel/watcher-win32-x64": "2.5.1",
-    "@standard-schema/spec": "1.0.0",
-    "@tsconfig/bun": "catalog:",
-    "@types/babel__core": "7.20.5",
-    "@types/bun": "catalog:",
-    "@types/turndown": "5.0.5",
-    "@types/yargs": "17.0.33",
-    "@typescript/native-preview": "catalog:",
-    "typescript": "catalog:",
-    "vscode-languageserver-types": "3.17.5",
-    "why-is-node-running": "3.2.2",
-    "zod-to-json-schema": "3.24.5"
-  },
-  "dependencies": {
-    "@actions/core": "1.11.1",
-    "@actions/github": "6.0.1",
-    "@agentclientprotocol/sdk": "0.12.0",
-    "@ai-sdk/amazon-bedrock": "3.0.73",
-    "@ai-sdk/anthropic": "2.0.57",
-    "@ai-sdk/azure": "2.0.91",
-    "@ai-sdk/cerebras": "1.0.34",
-    "@ai-sdk/cohere": "2.0.22",
-    "@ai-sdk/deepinfra": "1.0.31",
-    "@ai-sdk/gateway": "2.0.25",
-    "@ai-sdk/google": "2.0.52",
-    "@ai-sdk/google-vertex": "3.0.97",
-    "@ai-sdk/groq": "2.0.34",
-    "@ai-sdk/mistral": "2.0.27",
-    "@ai-sdk/openai": "2.0.89",
-    "@ai-sdk/openai-compatible": "1.0.30",
-    "@ai-sdk/perplexity": "2.0.23",
-    "@ai-sdk/provider": "2.0.1",
-    "@ai-sdk/provider-utils": "3.0.20",
-    "@ai-sdk/togetherai": "1.0.31",
-    "@ai-sdk/vercel": "1.0.31",
-    "@ai-sdk/xai": "2.0.51",
-    "@clack/prompts": "1.0.0-alpha.1",
-    "@gitlab/gitlab-ai-provider": "3.3.1",
-    "@hono/standard-validator": "0.1.5",
-    "@hono/zod-validator": "catalog:",
-    "@modelcontextprotocol/sdk": "1.25.2",
-    "@octokit/graphql": "9.0.2",
-    "@octokit/rest": "catalog:",
-    "@openauthjs/openauth": "catalog:",
-    "@opencode-ai/plugin": "workspace:*",
-    "@opencode-ai/script": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
-    "@opencode-ai/util": "workspace:*",
-    "@openrouter/ai-sdk-provider": "1.5.2",
-    "@opentui/core": "0.1.75",
-    "@opentui/solid": "0.1.75",
-    "@parcel/watcher": "2.5.1",
-    "@pierre/diffs": "catalog:",
-    "@solid-primitives/event-bus": "1.1.2",
-    "@solid-primitives/scheduled": "1.5.2",
-    "@standard-schema/spec": "1.0.0",
-    "@zip.js/zip.js": "2.7.62",
-    "ai": "catalog:",
-    "bonjour-service": "1.3.0",
-    "bun-pty": "0.4.4",
-    "chokidar": "4.0.3",
-    "clipboardy": "4.0.0",
-    "decimal.js": "10.5.0",
-    "diff": "catalog:",
-    "fuzzysort": "3.1.0",
-    "gray-matter": "4.0.3",
-    "hono": "catalog:",
-    "hono-openapi": "catalog:",
-    "ignore": "7.0.5",
-    "jsonc-parser": "3.3.1",
-    "minimatch": "10.0.3",
-    "open": "10.1.2",
-    "opentui-spinner": "0.0.6",
-    "partial-json": "0.1.7",
-    "remeda": "catalog:",
-    "solid-js": "catalog:",
-    "strip-ansi": "7.1.2",
-    "tree-sitter-bash": "0.25.0",
-    "turndown": "7.2.0",
-    "ulid": "catalog:",
-    "vscode-jsonrpc": "8.2.1",
-    "web-tree-sitter": "0.25.10",
-    "xdg-basedir": "5.1.0",
-    "yargs": "18.0.0",
-    "zod": "catalog:",
-    "zod-to-json-schema": "3.24.5"
-  }
-}
-</file>
-
-<file path="packages/slack/package.json">
-{
-  "name": "@opencode-ai/slack",
-  "version": "0.0.0-ci-202601291718",
-  "type": "module",
-  "license": "MIT",
-  "scripts": {
-    "dev": "bun run src/index.ts",
-    "typecheck": "tsgo --noEmit"
-  },
-  "dependencies": {
-    "@opencode-ai/sdk": "workspace:*",
-    "@slack/bolt": "^3.17.1"
-  },
-  "devDependencies": {
-    "@types/node": "catalog:",
-    "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:"
-  }
-}
-</file>
-
-<file path="packages/ui/package.json">
-{
-  "name": "@opencode-ai/ui",
-  "version": "0.0.0-ci-202601291718",
-  "type": "module",
-  "license": "MIT",
-  "exports": {
-    "./*": "./src/components/*.tsx",
-    "./i18n/*": "./src/i18n/*.ts",
-    "./pierre": "./src/pierre/index.ts",
-    "./pierre/*": "./src/pierre/*.ts",
-    "./hooks": "./src/hooks/index.ts",
-    "./context": "./src/context/index.ts",
-    "./context/*": "./src/context/*.tsx",
-    "./styles": "./src/styles/index.css",
-    "./styles/tailwind": "./src/styles/tailwind/index.css",
-    "./theme": "./src/theme/index.ts",
-    "./theme/*": "./src/theme/*.ts",
-    "./theme/context": "./src/theme/context.tsx",
-    "./icons/provider": "./src/components/provider-icons/types.ts",
-    "./icons/file-type": "./src/components/file-icons/types.ts",
-    "./fonts/*": "./src/assets/fonts/*",
-    "./audio/*": "./src/assets/audio/*"
-  },
-  "scripts": {
-    "typecheck": "tsgo --noEmit",
-    "dev": "vite",
-    "generate:tailwind": "bun run script/tailwind.ts"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "catalog:",
-    "@tsconfig/node22": "catalog:",
-    "@types/bun": "catalog:",
-    "@types/katex": "0.16.7",
-    "@types/luxon": "catalog:",
-    "tailwindcss": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "vite-plugin-icons-spritesheet": "3.0.1",
-    "vite-plugin-solid": "catalog:"
-  },
-  "dependencies": {
-    "@kobalte/core": "catalog:",
-    "@opencode-ai/sdk": "workspace:*",
-    "@opencode-ai/util": "workspace:*",
-    "@pierre/diffs": "catalog:",
-    "@shikijs/transformers": "3.9.2",
-    "@solid-primitives/bounds": "0.1.3",
-    "@solid-primitives/media": "2.3.3",
-    "@solid-primitives/resize-observer": "2.1.3",
-    "@solidjs/meta": "catalog:",
-    "@typescript/native-preview": "catalog:",
-    "dompurify": "3.3.1",
-    "fuzzysort": "catalog:",
-    "katex": "0.16.27",
-    "luxon": "catalog:",
-    "marked": "catalog:",
-    "marked-katex-extension": "5.1.6",
-    "marked-shiki": "catalog:",
-    "morphdom": "2.7.8",
-    "remeda": "catalog:",
-    "shiki": "catalog:",
-    "solid-js": "catalog:",
-    "solid-list": "catalog:",
-    "strip-ansi": "7.1.2",
-    "virtua": "catalog:"
-  }
-}
-</file>
-
-<file path="packages/util/package.json">
-{
-  "name": "@opencode-ai/util",
-  "version": "0.0.0-ci-202601291718",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "exports": {
-    "./*": "./src/*.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "typescript": "catalog:",
-    "@types/bun": "catalog:"
-  }
-}
-</file>
-
-<file path="packages/web/package.json">
-{
-  "name": "@opencode-ai/web",
-  "type": "module",
-  "license": "MIT",
-  "version": "0.0.0-ci-202601291718",
-  "scripts": {
-    "dev": "astro dev",
-    "dev:remote": "VITE_API_URL=https://api.opencode.ai astro dev",
-    "start": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "astro": "astro"
-  },
-  "dependencies": {
-    "@astrojs/cloudflare": "12.6.3",
-    "@astrojs/markdown-remark": "6.3.1",
-    "@astrojs/solid-js": "5.1.0",
-    "@astrojs/starlight": "0.34.3",
-    "@fontsource/ibm-plex-mono": "5.2.5",
-    "@shikijs/transformers": "3.4.2",
-    "@types/luxon": "catalog:",
-    "ai": "catalog:",
-    "astro": "5.7.13",
-    "diff": "catalog:",
-    "js-base64": "3.7.7",
-    "lang-map": "0.4.0",
-    "luxon": "catalog:",
-    "marked": "catalog:",
-    "marked-shiki": "catalog:",
-    "rehype-autolink-headings": "7.1.0",
-    "remeda": "catalog:",
-    "shiki": "catalog:",
-    "solid-js": "catalog:",
-    "toolbeam-docs-theme": "0.4.8"
-  },
-  "devDependencies": {
-    "opencode": "workspace:*",
-    "@types/node": "catalog:",
-    "typescript": "catalog:"
-  }
-}
-</file>
-
-<file path="sdks/vscode/package.json">
-{
-  "name": "opencode",
-  "displayName": "opencode",
-  "description": "opencode for VS Code",
-  "version": "0.0.0-ci-202601291718",
-  "publisher": "sst-dev",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/anomalyco/opencode"
-  },
-  "license": "MIT",
-  "icon": "images/icon.png",
-  "galleryBanner": {
-    "color": "#000000",
-    "theme": "dark"
-  },
-  "engines": {
-    "vscode": "^1.94.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "opencode.openTerminal",
-        "title": "Open opencode",
-        "icon": {
-          "light": "images/button-dark.svg",
-          "dark": "images/button-light.svg"
-        }
-      },
-      {
-        "command": "opencode.openNewTerminal",
-        "title": "Open opencode in new tab",
-        "icon": {
-          "light": "images/button-dark.svg",
-          "dark": "images/button-light.svg"
-        }
-      },
-      {
-        "command": "opencode.addFilepathToTerminal",
-        "title": "Add Filepath to Terminal"
-      }
-    ],
-    "menus": {
-      "editor/title": [
-        {
-          "command": "opencode.openNewTerminal",
-          "group": "navigation"
-        }
-      ]
-    },
-    "keybindings": [
-      {
-        "command": "opencode.openTerminal",
-        "title": "Run opencode",
-        "key": "cmd+escape",
-        "mac": "cmd+escape",
-        "win": "ctrl+escape",
-        "linux": "ctrl+escape"
-      },
-      {
-        "command": "opencode.openNewTerminal",
-        "title": "Run opencode",
-        "key": "cmd+shift+escape",
-        "mac": "cmd+shift+escape",
-        "win": "ctrl+shift+escape",
-        "linux": "ctrl+shift+escape"
-      },
-      {
-        "command": "opencode.addFilepathToTerminal",
-        "title": "opencode: Insert At-Mentioned",
-        "key": "cmd+alt+k",
-        "mac": "cmd+alt+k",
-        "win": "ctrl+alt+K",
-        "linux": "ctrl+alt+K"
-      }
-    ]
-  },
-  "scripts": {
-    "vscode:prepublish": "bun run package",
-    "compile": "bun run check-types && bun run lint && node esbuild.js",
-    "watch:esbuild": "node esbuild.js --watch",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "bun run check-types && bun run lint && node esbuild.js --production",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "bun run compile-tests && bun run compile && bun run lint",
-    "check-types": "tsc --noEmit",
-    "lint": "eslint src",
-    "test": "vscode-test"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.94.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "esbuild": "^0.25.3",
-    "typescript": "^5.8.3",
-    "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
-  }
-}
-</file>
-
 <file path="packages/app/src/pages/session.tsx">
 import {
   For,
@@ -346592,6 +346075,672 @@ export default function Page() {
       </Show>
     </div>
   )
+}
+</file>
+
+<file path="packages/console/app/package.json">
+{
+  "name": "@opencode-ai/console-app",
+  "version": "0.0.0-ci-202601291718",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "dev": "vite dev --host 0.0.0.0",
+    "dev:remote": "VITE_AUTH_URL=https://auth.dev.opencode.ai VITE_STRIPE_PUBLISHABLE_KEY=pk_test_51RtuLNE7fOCwHSD4mewwzFejyytjdGoSDK7CAvhbffwaZnPbNb2rwJICw6LTOXCmWO320fSNXvb5NzI08RZVkAxd00syfqrW7t bun sst shell --stage=dev bun dev",
+    "build": "./script/generate-sitemap.ts && vite build && ../../opencode/script/schema.ts ./.output/public/config.json",
+    "start": "vite start"
+  },
+  "dependencies": {
+    "@cloudflare/vite-plugin": "1.15.2",
+    "@ibm/plex": "6.4.1",
+    "@jsx-email/render": "1.1.1",
+    "@kobalte/core": "catalog:",
+    "@openauthjs/openauth": "catalog:",
+    "@opencode-ai/console-core": "workspace:*",
+    "@opencode-ai/console-mail": "workspace:*",
+    "@opencode-ai/console-resource": "workspace:*",
+    "@opencode-ai/ui": "workspace:*",
+    "@smithy/eventstream-codec": "4.2.7",
+    "@smithy/util-utf8": "4.2.0",
+    "@solidjs/meta": "catalog:",
+    "@solidjs/router": "catalog:",
+    "@solidjs/start": "catalog:",
+    "@stripe/stripe-js": "8.6.1",
+    "chart.js": "4.5.1",
+    "nitro": "3.0.1-alpha.1",
+    "solid-js": "catalog:",
+    "solid-list": "0.3.0",
+    "solid-stripe": "0.8.1",
+    "vite": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "catalog:",
+    "@webgpu/types": "0.1.54",
+    "typescript": "catalog:",
+    "wrangler": "4.50.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
+</file>
+
+<file path="packages/console/core/package.json">
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@opencode-ai/console-core",
+  "version": "0.0.0-ci-202601291718",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-sts": "3.782.0",
+    "@jsx-email/render": "1.1.1",
+    "@opencode-ai/console-mail": "workspace:*",
+    "@opencode-ai/console-resource": "workspace:*",
+    "@planetscale/database": "1.19.0",
+    "aws4fetch": "1.0.20",
+    "drizzle-orm": "0.41.0",
+    "postgres": "3.4.7",
+    "stripe": "18.0.0",
+    "ulid": "catalog:",
+    "zod": "catalog:"
+  },
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "db": "sst shell drizzle-kit",
+    "db-dev": "sst shell --stage dev -- drizzle-kit",
+    "db-prod": "sst shell --stage production -- drizzle-kit",
+    "shell": "sst shell -- bun",
+    "shell-dev": "sst shell --stage dev -- bun",
+    "shell-prod": "sst shell --stage production -- bun",
+    "update-models": "script/update-models.ts",
+    "promote-models-to-dev": "script/promote-models.ts dev",
+    "promote-models-to-prod": "script/promote-models.ts production",
+    "pull-models-from-dev": "script/pull-models.ts dev",
+    "pull-models-from-prod": "script/pull-models.ts production",
+    "update-black": "script/update-black.ts",
+    "promote-black-to-dev": "script/promote-black.ts dev",
+    "promote-black-to-prod": "script/promote-black.ts production",
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tsconfig/node22": "22.0.2",
+    "@types/bun": "1.3.0",
+    "@types/node": "catalog:",
+    "drizzle-kit": "0.30.5",
+    "mysql2": "3.14.4",
+    "typescript": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}
+</file>
+
+<file path="packages/console/function/package.json">
+{
+  "name": "@opencode-ai/console-function",
+  "version": "0.0.0-ci-202601291718",
+  "$schema": "https://json.schemastore.org/package.json",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tsconfig/node22": "22.0.2",
+    "@types/node": "catalog:",
+    "openai": "5.11.0",
+    "typescript": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "2.0.0",
+    "@ai-sdk/openai": "2.0.2",
+    "@ai-sdk/openai-compatible": "1.0.1",
+    "@hono/zod-validator": "catalog:",
+    "@opencode-ai/console-core": "workspace:*",
+    "@opencode-ai/console-resource": "workspace:*",
+    "@openauthjs/openauth": "0.0.0-20250322224806",
+    "ai": "catalog:",
+    "hono": "catalog:",
+    "zod": "catalog:"
+  }
+}
+</file>
+
+<file path="packages/console/mail/package.json">
+{
+  "name": "@opencode-ai/console-mail",
+  "version": "0.0.0-ci-202601291718",
+  "dependencies": {
+    "@jsx-email/all": "2.2.3",
+    "@jsx-email/cli": "1.4.3",
+    "@tsconfig/bun": "1.0.9",
+    "@types/react": "18.0.25",
+    "react": "18.2.0",
+    "solid-js": "catalog:"
+  },
+  "exports": {
+    "./*": "./emails/templates/*"
+  },
+  "$schema": "https://json.schemastore.org/package.json",
+  "private": true,
+  "scripts": {
+    "dev": "email preview emails/templates"
+  },
+  "type": "module",
+  "license": "MIT"
+}
+</file>
+
+<file path="packages/enterprise/package.json">
+{
+  "name": "@opencode-ai/enterprise",
+  "version": "0.0.0-ci-202601291718",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "dev": "vite dev",
+    "build": "vite build",
+    "build:cloudflare": "OPENCODE_DEPLOYMENT_TARGET=cloudflare vite build",
+    "start": "vite start",
+    "shell-prod": "sst shell --target Teams --stage production"
+  },
+  "dependencies": {
+    "@opencode-ai/util": "workspace:*",
+    "@opencode-ai/ui": "workspace:*",
+    "aws4fetch": "^1.0.20",
+    "@pierre/diffs": "catalog:",
+    "@solidjs/router": "catalog:",
+    "@solidjs/start": "catalog:",
+    "@solidjs/meta": "catalog:",
+    "hono": "catalog:",
+    "hono-openapi": "catalog:",
+    "js-base64": "3.7.7",
+    "luxon": "catalog:",
+    "nitro": "3.0.1-alpha.1",
+    "solid-js": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "@types/luxon": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
+</file>
+
+<file path="packages/extensions/zed/extension.toml">
+id = "opencode"
+name = "OpenCode"
+description = "The open source coding agent."
+version = "0.0.0-ci-202601291718"
+schema_version = 1
+authors = ["Anomaly"]
+repository = "https://github.com/anomalyco/opencode"
+
+[agent_servers.opencode]
+name = "OpenCode"
+icon = "./icons/opencode.svg"
+
+[agent_servers.opencode.targets.darwin-aarch64]
+archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-darwin-arm64.zip"
+cmd = "./opencode"
+args = ["acp"]
+
+[agent_servers.opencode.targets.darwin-x86_64]
+archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-darwin-x64.zip"
+cmd = "./opencode"
+args = ["acp"]
+
+[agent_servers.opencode.targets.linux-aarch64]
+archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-linux-arm64.tar.gz"
+cmd = "./opencode"
+args = ["acp"]
+
+[agent_servers.opencode.targets.linux-x86_64]
+archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-linux-x64.tar.gz"
+cmd = "./opencode"
+args = ["acp"]
+
+[agent_servers.opencode.targets.windows-x86_64]
+archive = "https://github.com/anomalyco/opencode/releases/download/v0.0.0-ci-202601291718/opencode-windows-x64.zip"
+cmd = "./opencode.exe"
+args = ["acp"]
+</file>
+
+<file path="packages/function/package.json">
+{
+  "name": "@opencode-ai/function",
+  "version": "0.0.0-ci-202601291718",
+  "$schema": "https://json.schemastore.org/package.json",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tsconfig/node22": "22.0.2",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "8.0.1",
+    "@octokit/rest": "catalog:",
+    "hono": "catalog:",
+    "jose": "6.0.11"
+  }
+}
+</file>
+
+<file path="packages/opencode/package.json">
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "version": "0.0.0-ci-202601291718",
+  "name": "opencode",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test",
+    "build": "bun run script/build.ts",
+    "dev": "bun run --conditions=browser ./src/index.ts",
+    "random": "echo 'Random script updated at $(date)' && echo 'Change queued successfully' && echo 'Another change made' && echo 'Yet another change' && echo 'One more change' && echo 'Final change' && echo 'Another final change' && echo 'Yet another final change'",
+    "clean": "echo 'Cleaning up...' && rm -rf node_modules dist",
+    "lint": "echo 'Running lint checks...' && bun test --coverage",
+    "format": "echo 'Formatting code...' && bun run --prettier --write src/**/*.ts",
+    "docs": "echo 'Generating documentation...' && find src -name '*.ts' -exec echo 'Processing: {}' \\;",
+    "deploy": "echo 'Deploying application...' && bun run build && echo 'Deployment completed successfully'"
+  },
+  "bin": {
+    "opencode": "./bin/opencode"
+  },
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "devDependencies": {
+    "@babel/core": "7.28.4",
+    "@octokit/webhooks-types": "7.6.1",
+    "@opencode-ai/script": "workspace:*",
+    "@parcel/watcher-darwin-arm64": "2.5.1",
+    "@parcel/watcher-darwin-x64": "2.5.1",
+    "@parcel/watcher-linux-arm64-glibc": "2.5.1",
+    "@parcel/watcher-linux-arm64-musl": "2.5.1",
+    "@parcel/watcher-linux-x64-glibc": "2.5.1",
+    "@parcel/watcher-linux-x64-musl": "2.5.1",
+    "@parcel/watcher-win32-x64": "2.5.1",
+    "@standard-schema/spec": "1.0.0",
+    "@tsconfig/bun": "catalog:",
+    "@types/babel__core": "7.20.5",
+    "@types/bun": "catalog:",
+    "@types/turndown": "5.0.5",
+    "@types/yargs": "17.0.33",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:",
+    "vscode-languageserver-types": "3.17.5",
+    "why-is-node-running": "3.2.2",
+    "zod-to-json-schema": "3.24.5"
+  },
+  "dependencies": {
+    "@actions/core": "1.11.1",
+    "@actions/github": "6.0.1",
+    "@agentclientprotocol/sdk": "0.12.0",
+    "@ai-sdk/amazon-bedrock": "3.0.73",
+    "@ai-sdk/anthropic": "2.0.57",
+    "@ai-sdk/azure": "2.0.91",
+    "@ai-sdk/cerebras": "1.0.34",
+    "@ai-sdk/cohere": "2.0.22",
+    "@ai-sdk/deepinfra": "1.0.31",
+    "@ai-sdk/gateway": "2.0.25",
+    "@ai-sdk/google": "2.0.52",
+    "@ai-sdk/google-vertex": "3.0.97",
+    "@ai-sdk/groq": "2.0.34",
+    "@ai-sdk/mistral": "2.0.27",
+    "@ai-sdk/openai": "2.0.89",
+    "@ai-sdk/openai-compatible": "1.0.30",
+    "@ai-sdk/perplexity": "2.0.23",
+    "@ai-sdk/provider": "2.0.1",
+    "@ai-sdk/provider-utils": "3.0.20",
+    "@ai-sdk/togetherai": "1.0.31",
+    "@ai-sdk/vercel": "1.0.31",
+    "@ai-sdk/xai": "2.0.51",
+    "@clack/prompts": "1.0.0-alpha.1",
+    "@gitlab/gitlab-ai-provider": "3.3.1",
+    "@hono/standard-validator": "0.1.5",
+    "@hono/zod-validator": "catalog:",
+    "@modelcontextprotocol/sdk": "1.25.2",
+    "@octokit/graphql": "9.0.2",
+    "@octokit/rest": "catalog:",
+    "@openauthjs/openauth": "catalog:",
+    "@opencode-ai/plugin": "workspace:*",
+    "@opencode-ai/script": "workspace:*",
+    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/util": "workspace:*",
+    "@openrouter/ai-sdk-provider": "1.5.2",
+    "@opentui/core": "0.1.75",
+    "@opentui/solid": "0.1.75",
+    "@parcel/watcher": "2.5.1",
+    "@pierre/diffs": "catalog:",
+    "@solid-primitives/event-bus": "1.1.2",
+    "@solid-primitives/scheduled": "1.5.2",
+    "@standard-schema/spec": "1.0.0",
+    "@zip.js/zip.js": "2.7.62",
+    "ai": "catalog:",
+    "bonjour-service": "1.3.0",
+    "bun-pty": "0.4.4",
+    "chokidar": "4.0.3",
+    "clipboardy": "4.0.0",
+    "decimal.js": "10.5.0",
+    "diff": "catalog:",
+    "fuzzysort": "3.1.0",
+    "gray-matter": "4.0.3",
+    "hono": "catalog:",
+    "hono-openapi": "catalog:",
+    "ignore": "7.0.5",
+    "jsonc-parser": "3.3.1",
+    "minimatch": "10.0.3",
+    "open": "10.1.2",
+    "opentui-spinner": "0.0.6",
+    "partial-json": "0.1.7",
+    "remeda": "catalog:",
+    "solid-js": "catalog:",
+    "strip-ansi": "7.1.2",
+    "tree-sitter-bash": "0.25.0",
+    "turndown": "7.2.0",
+    "ulid": "catalog:",
+    "vscode-jsonrpc": "8.2.1",
+    "web-tree-sitter": "0.25.10",
+    "xdg-basedir": "5.1.0",
+    "yargs": "18.0.0",
+    "zod": "catalog:",
+    "zod-to-json-schema": "3.24.5"
+  }
+}
+</file>
+
+<file path="packages/slack/package.json">
+{
+  "name": "@opencode-ai/slack",
+  "version": "0.0.0-ci-202601291718",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "workspace:*",
+    "@slack/bolt": "^3.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}
+</file>
+
+<file path="packages/ui/package.json">
+{
+  "name": "@opencode-ai/ui",
+  "version": "0.0.0-ci-202601291718",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./*": "./src/components/*.tsx",
+    "./i18n/*": "./src/i18n/*.ts",
+    "./pierre": "./src/pierre/index.ts",
+    "./pierre/*": "./src/pierre/*.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./context": "./src/context/index.ts",
+    "./context/*": "./src/context/*.tsx",
+    "./styles": "./src/styles/index.css",
+    "./styles/tailwind": "./src/styles/tailwind/index.css",
+    "./theme": "./src/theme/index.ts",
+    "./theme/*": "./src/theme/*.ts",
+    "./theme/context": "./src/theme/context.tsx",
+    "./icons/provider": "./src/components/provider-icons/types.ts",
+    "./icons/file-type": "./src/components/file-icons/types.ts",
+    "./fonts/*": "./src/assets/fonts/*",
+    "./audio/*": "./src/assets/audio/*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "dev": "vite",
+    "generate:tailwind": "bun run script/tailwind.ts"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/katex": "0.16.7",
+    "@types/luxon": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-icons-spritesheet": "3.0.1",
+    "vite-plugin-solid": "catalog:"
+  },
+  "dependencies": {
+    "@kobalte/core": "catalog:",
+    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/util": "workspace:*",
+    "@pierre/diffs": "catalog:",
+    "@shikijs/transformers": "3.9.2",
+    "@solid-primitives/bounds": "0.1.3",
+    "@solid-primitives/media": "2.3.3",
+    "@solid-primitives/resize-observer": "2.1.3",
+    "@solidjs/meta": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "dompurify": "3.3.1",
+    "fuzzysort": "catalog:",
+    "katex": "0.16.27",
+    "luxon": "catalog:",
+    "marked": "catalog:",
+    "marked-katex-extension": "5.1.6",
+    "marked-shiki": "catalog:",
+    "morphdom": "2.7.8",
+    "remeda": "catalog:",
+    "shiki": "catalog:",
+    "solid-js": "catalog:",
+    "solid-list": "catalog:",
+    "strip-ansi": "7.1.2",
+    "virtua": "catalog:"
+  }
+}
+</file>
+
+<file path="packages/util/package.json">
+{
+  "name": "@opencode-ai/util",
+  "version": "0.0.0-ci-202601291718",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "@types/bun": "catalog:"
+  }
+}
+</file>
+
+<file path="packages/web/package.json">
+{
+  "name": "@opencode-ai/web",
+  "type": "module",
+  "license": "MIT",
+  "version": "0.0.0-ci-202601291718",
+  "scripts": {
+    "dev": "astro dev",
+    "dev:remote": "VITE_API_URL=https://api.opencode.ai astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "12.6.3",
+    "@astrojs/markdown-remark": "6.3.1",
+    "@astrojs/solid-js": "5.1.0",
+    "@astrojs/starlight": "0.34.3",
+    "@fontsource/ibm-plex-mono": "5.2.5",
+    "@shikijs/transformers": "3.4.2",
+    "@types/luxon": "catalog:",
+    "ai": "catalog:",
+    "astro": "5.7.13",
+    "diff": "catalog:",
+    "js-base64": "3.7.7",
+    "lang-map": "0.4.0",
+    "luxon": "catalog:",
+    "marked": "catalog:",
+    "marked-shiki": "catalog:",
+    "rehype-autolink-headings": "7.1.0",
+    "remeda": "catalog:",
+    "shiki": "catalog:",
+    "solid-js": "catalog:",
+    "toolbeam-docs-theme": "0.4.8"
+  },
+  "devDependencies": {
+    "opencode": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}
+</file>
+
+<file path="sdks/vscode/package.json">
+{
+  "name": "opencode",
+  "displayName": "opencode",
+  "description": "opencode for VS Code",
+  "version": "0.0.0-ci-202601291718",
+  "publisher": "sst-dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/opencode"
+  },
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#000000",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "opencode.openTerminal",
+        "title": "Open opencode",
+        "icon": {
+          "light": "images/button-dark.svg",
+          "dark": "images/button-light.svg"
+        }
+      },
+      {
+        "command": "opencode.openNewTerminal",
+        "title": "Open opencode in new tab",
+        "icon": {
+          "light": "images/button-dark.svg",
+          "dark": "images/button-light.svg"
+        }
+      },
+      {
+        "command": "opencode.addFilepathToTerminal",
+        "title": "Add Filepath to Terminal"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "opencode.openNewTerminal",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "opencode.openTerminal",
+        "title": "Run opencode",
+        "key": "cmd+escape",
+        "mac": "cmd+escape",
+        "win": "ctrl+escape",
+        "linux": "ctrl+escape"
+      },
+      {
+        "command": "opencode.openNewTerminal",
+        "title": "Run opencode",
+        "key": "cmd+shift+escape",
+        "mac": "cmd+shift+escape",
+        "win": "ctrl+shift+escape",
+        "linux": "ctrl+shift+escape"
+      },
+      {
+        "command": "opencode.addFilepathToTerminal",
+        "title": "opencode: Insert At-Mentioned",
+        "key": "cmd+alt+k",
+        "mac": "cmd+alt+k",
+        "win": "ctrl+alt+K",
+        "linux": "ctrl+alt+K"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "bun run package",
+    "compile": "bun run check-types && bun run lint && node esbuild.js",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "bun run check-types && bun run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "bun run compile-tests && bun run compile && bun run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.94.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2"
+  }
 }
 </file>
 

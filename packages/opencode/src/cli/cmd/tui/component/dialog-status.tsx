@@ -1,7 +1,8 @@
 import { TextAttributes } from "@opentui/core"
+import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
-import { For, Match, Switch, Show, createMemo } from "solid-js"
+import { For, Match, Switch, Show, createMemo, createSignal } from "solid-js"
 import { Installation } from "@/installation"
 
 export type DialogStatusProps = {}
@@ -9,6 +10,21 @@ export type DialogStatusProps = {}
 export function DialogStatus() {
   const sync = useSync()
   const { theme } = useTheme()
+
+  // View mode state: 'standard' shows status list, 'verbose' shows detailed configuration
+  const [viewMode, setViewMode] = createSignal<'standard' | 'verbose'>('standard')
+
+  // Handle arrow key navigation between views
+  useKeyboard((evt) => {
+    if (evt.name === "right" && viewMode() === 'standard') {
+      setViewMode('verbose')
+      evt.preventDefault()
+    }
+    if (evt.name === "left" && viewMode() === 'verbose') {
+      setViewMode('standard')
+      evt.preventDefault()
+    }
+  })
 
   const enabledFormatters = createMemo(() => sync.data.formatter.filter((f) => f.enabled))
 
@@ -40,125 +56,144 @@ export function DialogStatus() {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Status
-        </text>
+        <box flexDirection="row" gap={2}>
+          <text
+            fg={viewMode() === 'standard' ? theme.text : theme.textMuted}
+            attributes={viewMode() === 'standard' ? TextAttributes.BOLD : undefined}
+          >
+            {viewMode() === 'standard' ? '[Status]' : 'Status'}
+          </text>
+          <text
+            fg={viewMode() === 'verbose' ? theme.text : theme.textMuted}
+            attributes={viewMode() === 'verbose' ? TextAttributes.BOLD : undefined}
+          >
+            {viewMode() === 'verbose' ? '[Verbose]' : 'Verbose'}
+          </text>
+          <text fg={theme.textMuted}>(←/→ to cycle)</text>
+        </box>
         <text fg={theme.textMuted}>esc</text>
       </box>
-      <text fg={theme.textMuted}>MAP v{Installation.VERSION}</text>
-      <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.text}>No MCP Servers</text>}>
-        <box>
-          <text fg={theme.text}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
-          <For each={Object.entries(sync.data.mcp)}>
-            {([key, item]) => (
-              <box flexDirection="row" gap={1}>
-                <text
-                  flexShrink={0}
-                  style={{
-                    fg: (
-                      {
-                        connected: theme.success,
-                        failed: theme.error,
-                        disabled: theme.textMuted,
-                        needs_auth: theme.warning,
-                        needs_client_registration: theme.error,
-                      } as Record<string, typeof theme.success>
-                    )[item.status],
-                  }}
-                >
-                  •
-                </text>
-                <text fg={theme.text} wrapMode="word">
-                  <b>{key}</b>{" "}
-                  <span style={{ fg: theme.textMuted }}>
-                    <Switch fallback={item.status}>
-                      <Match when={item.status === "connected"}>Connected</Match>
-                      <Match when={item.status === "failed" && item}>{(val) => val().error}</Match>
-                      <Match when={item.status === "disabled"}>Disabled in configuration</Match>
-                      <Match when={(item.status as string) === "needs_auth"}>
-                        Needs authentication (run: map mcp auth {key})
-                      </Match>
-                      <Match when={(item.status as string) === "needs_client_registration" && item}>
-                        {(val) => (val() as { error: string }).error}
-                      </Match>
-                    </Switch>
-                  </span>
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
-      </Show>
-      {sync.data.lsp.length > 0 && (
-        <box>
-          <text fg={theme.text}>{sync.data.lsp.length} LSP Servers</text>
-          <For each={sync.data.lsp}>
-            {(item) => (
-              <box flexDirection="row" gap={1}>
-                <text
-                  flexShrink={0}
-                  style={{
-                    fg: {
-                      connected: theme.success,
-                      error: theme.error,
-                    }[item.status],
-                  }}
-                >
-                  •
-                </text>
-                <text fg={theme.text} wrapMode="word">
-                  <b>{item.id}</b> <span style={{ fg: theme.textMuted }}>{item.root}</span>
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
-      )}
-      <Show when={enabledFormatters().length > 0} fallback={<text fg={theme.text}>No Formatters</text>}>
-        <box>
-          <text fg={theme.text}>{enabledFormatters().length} Formatters</text>
-          <For each={enabledFormatters()}>
-            {(item) => (
-              <box flexDirection="row" gap={1}>
-                <text
-                  flexShrink={0}
-                  style={{
-                    fg: theme.success,
-                  }}
-                >
-                  •
-                </text>
-                <text wrapMode="word" fg={theme.text}>
-                  <b>{item.name}</b>
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
-      </Show>
-      <Show when={plugins().length > 0} fallback={<text fg={theme.text}>No Plugins</text>}>
-        <box>
-          <text fg={theme.text}>{plugins().length} Plugins</text>
-          <For each={plugins()}>
-            {(item) => (
-              <box flexDirection="row" gap={1}>
-                <text
-                  flexShrink={0}
-                  style={{
-                    fg: theme.success,
-                  }}
-                >
-                  •
-                </text>
-                <text wrapMode="word" fg={theme.text}>
-                  <b>{item.name}</b>
-                  {item.version && <span style={{ fg: theme.textMuted }}> @{item.version}</span>}
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
-      </Show>
+      <Switch>
+        <Match when={viewMode() === 'standard'}>
+          <text fg={theme.textMuted}>MAP v{Installation.VERSION}</text>
+          <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.text}>No MCP Servers</text>}>
+            <box>
+              <text fg={theme.text}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
+              <For each={Object.entries(sync.data.mcp)}>
+                {([key, item]) => (
+                  <box flexDirection="row" gap={1}>
+                    <text
+                      flexShrink={0}
+                      style={{
+                        fg: (
+                          {
+                            connected: theme.success,
+                            failed: theme.error,
+                            disabled: theme.textMuted,
+                            needs_auth: theme.warning,
+                            needs_client_registration: theme.error,
+                          } as Record<string, typeof theme.success>
+                        )[item.status],
+                      }}
+                    >
+                      •
+                    </text>
+                    <text fg={theme.text} wrapMode="word">
+                      <b>{key}</b>{" "}
+                      <span style={{ fg: theme.textMuted }}>
+                        <Switch fallback={item.status}>
+                          <Match when={item.status === "connected"}>Connected</Match>
+                          <Match when={item.status === "failed" && item}>{(val) => val().error}</Match>
+                          <Match when={item.status === "disabled"}>Disabled in configuration</Match>
+                          <Match when={(item.status as string) === "needs_auth"}>
+                            Needs authentication (run: map mcp auth {key})
+                          </Match>
+                          <Match when={(item.status as string) === "needs_client_registration" && item}>
+                            {(val) => (val() as { error: string }).error}
+                          </Match>
+                        </Switch>
+                      </span>
+                    </text>
+                  </box>
+                )}
+              </For>
+            </box>
+          </Show>
+          {sync.data.lsp.length > 0 && (
+            <box>
+              <text fg={theme.text}>{sync.data.lsp.length} LSP Servers</text>
+              <For each={sync.data.lsp}>
+                {(item) => (
+                  <box flexDirection="row" gap={1}>
+                    <text
+                      flexShrink={0}
+                      style={{
+                        fg: {
+                          connected: theme.success,
+                          error: theme.error,
+                        }[item.status],
+                      }}
+                    >
+                      •
+                    </text>
+                    <text fg={theme.text} wrapMode="word">
+                      <b>{item.id}</b> <span style={{ fg: theme.textMuted }}>{item.root}</span>
+                    </text>
+                  </box>
+                )}
+              </For>
+            </box>
+          )}
+          <Show when={enabledFormatters().length > 0} fallback={<text fg={theme.text}>No Formatters</text>}>
+            <box>
+              <text fg={theme.text}>{enabledFormatters().length} Formatters</text>
+              <For each={enabledFormatters()}>
+                {(item) => (
+                  <box flexDirection="row" gap={1}>
+                    <text
+                      flexShrink={0}
+                      style={{
+                        fg: theme.success,
+                      }}
+                    >
+                      •
+                    </text>
+                    <text wrapMode="word" fg={theme.text}>
+                      <b>{item.name}</b>
+                    </text>
+                  </box>
+                )}
+              </For>
+            </box>
+          </Show>
+          <Show when={plugins().length > 0} fallback={<text fg={theme.text}>No Plugins</text>}>
+            <box>
+              <text fg={theme.text}>{plugins().length} Plugins</text>
+              <For each={plugins()}>
+                {(item) => (
+                  <box flexDirection="row" gap={1}>
+                    <text
+                      flexShrink={0}
+                      style={{
+                        fg: theme.success,
+                      }}
+                    >
+                      •
+                    </text>
+                    <text wrapMode="word" fg={theme.text}>
+                      <b>{item.name}</b>
+                      {item.version && <span style={{ fg: theme.textMuted }}> @{item.version}</span>}
+                    </text>
+                  </box>
+                )}
+              </For>
+            </box>
+          </Show>
+        </Match>
+        <Match when={viewMode() === 'verbose'}>
+          <text fg={theme.textMuted}>Detailed configuration loading...</text>
+        </Match>
+      </Switch>
     </box>
   )
 }

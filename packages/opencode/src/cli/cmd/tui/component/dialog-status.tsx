@@ -2,6 +2,8 @@ import { TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
+import { useLocal } from "@tui/context/local"
+import { useArgs } from "@tui/context/args"
 import { For, Match, Switch, Show, createMemo, createSignal } from "solid-js"
 import { Installation } from "@/installation"
 
@@ -10,6 +12,15 @@ export type DialogStatusProps = {}
 export function DialogStatus() {
   const sync = useSync()
   const { theme } = useTheme()
+  const local = useLocal()
+  const args = useArgs()
+
+  // Get current provider info for verbose view
+  const currentProvider = createMemo(() => {
+    const model = local.model.current()
+    if (!model) return undefined
+    return sync.data.provider.find((p) => p.id === model.providerID)
+  })
 
   // View mode state: 'standard' shows status list, 'verbose' shows detailed configuration
   const [viewMode, setViewMode] = createSignal<'standard' | 'verbose'>('standard')
@@ -191,7 +202,28 @@ export function DialogStatus() {
           </Show>
         </Match>
         <Match when={viewMode() === 'verbose'}>
-          <text fg={theme.textMuted}>Detailed configuration loading...</text>
+          <box gap={1}>
+            <text fg={theme.text}>
+              <b>Version:</b> <span style={{ fg: theme.textMuted }}>MAP v{Installation.VERSION}</span>
+            </text>
+            <text fg={theme.text}>
+              <b>CWD:</b> <span style={{ fg: theme.textMuted }}>{sync.data.path.directory || 'Not set'}</span>
+            </text>
+            <text fg={theme.text}>
+              <b>Model:</b> <span style={{ fg: theme.textMuted }}>{local.model.parsed().provider}/{local.model.parsed().model}</span>
+            </text>
+            <Show when={currentProvider()}>
+              <text fg={theme.text}>
+                <b>Base URL:</b> <span style={{ fg: theme.textMuted }}>{(currentProvider()?.options as { baseURL?: string })?.baseURL || 'Default'}</span>
+              </text>
+              <text fg={theme.text}>
+                <b>Auth:</b> <span style={{ fg: theme.textMuted }}>{currentProvider()?.env?.join(', ') || 'Not configured'}</span>
+              </text>
+            </Show>
+            <text fg={theme.text}>
+              <b>Session ID:</b> <span style={{ fg: theme.textMuted }}>{args.sessionID || 'No active session'}</span>
+            </text>
+          </box>
         </Match>
       </Switch>
     </box>

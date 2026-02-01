@@ -4,7 +4,16 @@
 
 
 
-
+{
+  "version": "0.0.3",
+  "date": "2026-02-01",
+  "focus": "Status View Enhancements",
+  "changes": [
+    "Implemented 'Verbose' status view displaying detailed configuration (Version, CWD, Model, Base URL, Session ID).",
+    "Added arrow key navigation (Left/Right) to toggle between Standard and Verbose status views.",
+    "Updated Status dialog UI to include view switching hints."
+  ]
+}
 
 
 

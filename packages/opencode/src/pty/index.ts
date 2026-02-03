@@ -76,7 +76,7 @@ export namespace Pty {
       for (const session of sessions.values()) {
         try {
           session.process.kill()
-        } catch {}
+        } catch { }
         for (const ws of session.subscribers) {
           ws.close()
         }
@@ -101,7 +101,8 @@ export namespace Pty {
       args.push("-l")
     }
 
-    const cwd = input.cwd || Instance.directory
+    // MAP: Default to user home for unrestricted navigation (was Instance.directory)
+    const cwd = input.cwd || process.env.HOME || process.env.USERPROFILE || Instance.directory
     const env = {
       ...process.env,
       ...input.env,
@@ -184,7 +185,7 @@ export namespace Pty {
     log.info("removing session", { id })
     try {
       session.process.kill()
-    } catch {}
+    } catch { }
     for (const ws of session.subscribers) {
       ws.close()
     }

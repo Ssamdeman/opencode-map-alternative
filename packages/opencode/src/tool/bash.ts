@@ -1,5 +1,4 @@
 import z from "zod"
-import { spawn } from "child_process"
 import { Tool } from "./tool"
 import path from "path"
 import DESCRIPTION from "./bash.txt"
@@ -13,9 +12,12 @@ import { Filesystem } from "@/util/filesystem"
 import { fileURLToPath } from "url"
 import { Flag } from "@/flag/flag.ts"
 import { Shell } from "@/shell/shell"
+import { ShellSession } from "@/shell/shell-session"
 
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
+import { Bus } from "@/bus"
+import { TuiEvent } from "@/cli/cmd/tui/event"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
@@ -84,8 +86,9 @@ export const BashTool = Tool.define("bash", async () => {
       if (!tree) {
         throw new Error("Failed to parse command")
       }
-      const directories = new Set<string>()
-      if (!Instance.containsPath(cwd)) directories.add(cwd)
+      // MAP: External directory restrictions disabled for pentesting access
+      // const directories = new Set<string>()
+      // if (!Instance.containsPath(cwd)) directories.add(cwd)
       const patterns = new Set<string>()
       const always = new Set<string>()
 
@@ -124,7 +127,8 @@ export const BashTool = Tool.define("bash", async () => {
                 process.platform === "win32" && resolved.match(/^\/[a-z]\//)
                   ? resolved.replace(/^\/([a-z])\//, (_, drive) => `${drive.toUpperCase()}:\\`).replace(/\//g, "\\")
                   : resolved
-              if (!Instance.containsPath(normalized)) directories.add(normalized)
+              // MAP: Directory tracking disabled - unrestricted access
+              // if (!Instance.containsPath(normalized)) directories.add(normalized)
             }
           }
         }
@@ -136,14 +140,15 @@ export const BashTool = Tool.define("bash", async () => {
         }
       }
 
-      if (directories.size > 0) {
-        await ctx.ask({
-          permission: "external_directory",
-          patterns: Array.from(directories),
-          always: Array.from(directories).map((x) => path.dirname(x) + "*"),
-          metadata: {},
-        })
-      }
+      // MAP: External directory permission check disabled for pentesting
+      // if (directories.size > 0) {
+      //   await ctx.ask({
+      //     permission: "external_directory",
+      //     patterns: Array.from(directories),
+      //     always: Array.from(directories).map((x) => path.dirname(x) + "*"),
+      //     metadata: {},
+      //   })
+      // }
 
       if (patterns.size > 0) {
         await ctx.ask({
@@ -154,17 +159,20 @@ export const BashTool = Tool.define("bash", async () => {
         })
       }
 
-      const proc = spawn(params.command, {
-        shell,
-        cwd,
-        env: {
-          ...process.env,
-        },
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: process.platform !== "win32",
-      })
+      // MAP: Get persistent shell session (Phase B integration)
+      const session = ShellSession.getInstance()
+
+      // Handle workdir change if specified
+      if (params.workdir && params.workdir !== Instance.directory) {
+        const cdCmd = process.platform === "win32"
+          ? `Set-Location "${params.workdir}"`
+          : `cd "${params.workdir}"`
+        await session.execute(cdCmd)
+      }
 
       let output = ""
+      let timedOut = false
+      let aborted = false
 
       // Initialize metadata with empty output
       ctx.metadata({
@@ -174,60 +182,54 @@ export const BashTool = Tool.define("bash", async () => {
         },
       })
 
-      const append = (chunk: Buffer) => {
-        output += chunk.toString()
-        ctx.metadata({
-          metadata: {
-            // truncate the metadata to avoid GIANT blobs of data (has nothing to do w/ what agent can access)
-            output: output.length > MAX_METADATA_LENGTH ? output.slice(0, MAX_METADATA_LENGTH) + "\n\n..." : output,
-            description: params.description,
-          },
-        })
-      }
-
-      proc.stdout?.on("data", append)
-      proc.stderr?.on("data", append)
-
-      let timedOut = false
-      let aborted = false
-      let exited = false
-
-      const kill = () => Shell.killTree(proc, { exited: () => exited })
-
+      // Check if already aborted
       if (ctx.abort.aborted) {
         aborted = true
-        await kill()
       }
 
-      const abortHandler = () => {
-        aborted = true
-        void kill()
-      }
+      if (!aborted) {
+        // Execute with timeout using Promise.race
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => {
+            timedOut = true
+            reject(new Error(`Command timed out after ${timeout}ms`))
+          }, timeout)
+        )
 
-      ctx.abort.addEventListener("abort", abortHandler, { once: true })
+        const abortPromise = new Promise<never>((_, reject) => {
+          const handler = () => {
+            aborted = true
+            reject(new Error("Command aborted by user"))
+          }
+          ctx.abort.addEventListener("abort", handler, { once: true })
+        })
 
-      const timeoutTimer = setTimeout(() => {
-        timedOut = true
-        void kill()
-      }, timeout + 100)
-
-      await new Promise<void>((resolve, reject) => {
-        const cleanup = () => {
-          clearTimeout(timeoutTimer)
-          ctx.abort.removeEventListener("abort", abortHandler)
+        try {
+          const cmdOutput = await Promise.race([
+            session.execute(params.command),
+            timeoutPromise,
+            abortPromise,
+          ])
+          // Debug: Get current working directory for visibility
+          const debugPwd = await session.execute(
+            process.platform === "win32" ? "(Get-Location).Path" : "pwd"
+          )
+          output = `${cmdOutput}\n[MAP:DEBUG] cwd=${debugPwd.trim()}`
+        } catch (error) {
+          if (!timedOut && !aborted) {
+            output = `Error executing command: ${error}`
+          }
         }
+      }
 
-        proc.once("exit", () => {
-          exited = true
-          cleanup()
-          resolve()
-        })
-
-        proc.once("error", (error) => {
-          exited = true
-          cleanup()
-          reject(error)
-        })
+      // Update metadata with final output
+      ctx.metadata({
+        metadata: {
+          output: output.length > MAX_METADATA_LENGTH
+            ? output.slice(0, MAX_METADATA_LENGTH) + "\n\n..."
+            : output,
+          description: params.description,
+        },
       })
 
       const resultMetadata: string[] = []
@@ -248,7 +250,7 @@ export const BashTool = Tool.define("bash", async () => {
         title: params.description,
         metadata: {
           output: output.length > MAX_METADATA_LENGTH ? output.slice(0, MAX_METADATA_LENGTH) + "\n\n..." : output,
-          exit: proc.exitCode,
+          exit: timedOut || aborted ? 1 : 0,
           description: params.description,
         },
         output,

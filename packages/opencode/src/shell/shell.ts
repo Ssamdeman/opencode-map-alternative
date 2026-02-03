@@ -37,15 +37,8 @@ export namespace Shell {
 
   function fallback() {
     if (process.platform === "win32") {
-      if (Flag.OPENCODE_GIT_BASH_PATH) return Flag.OPENCODE_GIT_BASH_PATH
-      const git = Bun.which("git")
-      if (git) {
-        // git.exe is typically at: C:\Program Files\Git\cmd\git.exe
-        // bash.exe is at: C:\Program Files\Git\bin\bash.exe
-        const bash = path.join(git, "..", "..", "bin", "bash.exe")
-        if (Bun.file(bash).size) return bash
-      }
-      return process.env.COMSPEC || "cmd.exe"
+      // MAP: Force PowerShell on Windows for pentesting platform
+      return "powershell.exe"
     }
     if (process.platform === "darwin") return "/bin/zsh"
     const bash = Bun.which("bash")
@@ -54,14 +47,22 @@ export namespace Shell {
   }
 
   export const preferred = lazy(() => {
+    // MAP: Always use PowerShell on Windows, ignore $SHELL
+    if (process.platform === "win32") {
+      return "powershell.exe"
+    }
     const s = process.env.SHELL
     if (s) return s
     return fallback()
   })
 
   export const acceptable = lazy(() => {
+    // MAP: Always use PowerShell on Windows
+    if (process.platform === "win32") {
+      return "powershell.exe"
+    }
     const s = process.env.SHELL
-    if (s && !BLACKLIST.has(process.platform === "win32" ? path.win32.basename(s) : path.basename(s))) return s
+    if (s && !BLACKLIST.has(path.basename(s))) return s
     return fallback()
   })
 }

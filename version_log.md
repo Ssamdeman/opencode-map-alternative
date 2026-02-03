@@ -5,6 +5,18 @@
 
 
 {
+  "version": "0.0.4",
+  "date": "2026-02-03",
+  "focus": "Shell Architecture: Standardization & Persistence",
+  "changes": [
+    "Phase A (Standardization): Enforced PowerShell usage on Windows TUI for consistent environment.",
+    "Phase B (Persistence): Implemented shared singleton shell session for AI assistant and user commands.",
+    "Phase B (Persistence): Resolved directory state resets and cleaned up command output echoing."
+  ]
+}
+
+
+{
   "version": "0.0.3",
   "date": "2026-02-01",
   "focus": "Status View Enhancements",

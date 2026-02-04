@@ -57,7 +57,7 @@ const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of t
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
   let anchor: BoxRenderable
-  let autocomplete: AutocompleteRef
+  let autocomplete!: AutocompleteRef
 
   const keybind = useKeybind()
   const local = useLocal()
@@ -580,7 +580,7 @@ export function Prompt(props: PromptProps) {
         },
         command: inputText,
       })
-      setStore("mode", "normal")
+      // MAP: Stay in shell mode for consecutive commands
     } else if (
       inputText.startsWith("/") &&
       iife(() => {
@@ -812,9 +812,11 @@ export function Prompt(props: PromptProps) {
               placeholder={
                 store.mode === "shell"
                   ? "SHELL > Type command..."
-                  : props.sessionID
-                    ? undefined
-                    : `Ask anything... "${PLACEHOLDERS[store.placeholder]}"`
+                  : autocomplete?.visible
+                    ? "Type to filter..."
+                    : props.sessionID
+                      ? ""
+                      : `Ask anything... "${PLACEHOLDERS[store.placeholder]}"`
               }
               textColor={keybind.leader ? theme.textMuted : theme.text}
               focusedTextColor={keybind.leader ? theme.textMuted : theme.text}

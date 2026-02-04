@@ -1,8 +1,14 @@
-
-
-
-
-
+{
+  "version": "0.0.5",
+  "date": "2026-02-04",
+  "focus": "Shell Integration & UX Stability",
+  "changes": [
+    "Unified Agent and Shell cycling: 'Tab' now cycles through Agents -> Shell -> Agents.",
+    "Integrated Shell Mode into the main agent loop, removing need for separate toggle keybind.",
+    "Made Shell Mode persistent: Shell remains active after executing commands (REPL behavior).",
+    "Fixed TUI crash during mode switching caused by placeholder undefined state."
+  ]
+}
 
 {
   "version": "0.0.4",

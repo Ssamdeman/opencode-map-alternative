@@ -17,6 +17,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const providers = useProviders()
 
     function isModelValid(model: ModelKey) {
+      if (model.providerID === "ollama") return true
       const provider = providers.all().find((x) => x.id === model.providerID)
       return (
         !!provider?.models[model.modelID] &&

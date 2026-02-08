@@ -119,6 +119,18 @@ export namespace Provider {
         options: hasKey ? {} : { apiKey: "public" },
       }
     },
+    ollama: async () => {
+      return {
+        autoload: true,
+        options: {
+          baseURL: "http://localhost:11434/v1",
+          name: "ollama"
+        },
+        async getModel(sdk: any, modelID: string) {
+          return sdk.languageModel(modelID)
+        }
+      }
+    },
     openai: async () => {
       return {
         autoload: false,
@@ -617,13 +629,13 @@ export namespace Provider {
         },
         experimentalOver200K: model.cost?.context_over_200k
           ? {
-              cache: {
-                read: model.cost.context_over_200k.cache_read ?? 0,
-                write: model.cost.context_over_200k.cache_write ?? 0,
-              },
-              input: model.cost.context_over_200k.input,
-              output: model.cost.context_over_200k.output,
-            }
+            cache: {
+              read: model.cost.context_over_200k.cache_read ?? 0,
+              write: model.cost.context_over_200k.cache_write ?? 0,
+            },
+            input: model.cost.context_over_200k.input,
+            output: model.cost.context_over_200k.output,
+          }
           : undefined,
       },
       limit: {
@@ -672,11 +684,81 @@ export namespace Provider {
     }
   }
 
+  // Ollama Local Detection
+  async function detectOllamaModels(): Promise<Info | null> {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
+
+      const res = await fetch("http://localhost:11434/api/tags", {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+
+      if (!res.ok) return null
+
+      const data = await res.json() as { models: Array<{ name: string; modified_at: string; details?: { family?: string } }> }
+      if (!data.models || data.models.length === 0) return null
+
+      log.info("ollama detected", { count: data.models.length })
+
+      const models: Record<string, Model> = {}
+      for (const m of data.models) {
+        const id = m.name
+        models[id] = {
+          id,
+          providerID: "ollama",
+          name: m.name,
+          family: m.details?.family ?? "ollama",
+          api: {
+            id,
+            url: "http://localhost:11434/v1",
+            npm: "@ai-sdk/openai-compatible"
+          },
+          status: "active",
+          headers: {},
+          options: {},
+          cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+          limit: { context: 128000, output: 4096 },
+          capabilities: {
+            temperature: true,
+            reasoning: false,
+            attachment: false,
+            toolcall: true,
+            input: { text: true, audio: false, image: false, video: false, pdf: false },
+            output: { text: true, audio: false, image: false, video: false, pdf: false },
+            interleaved: false
+          },
+          release_date: m.modified_at ?? new Date().toISOString(),
+          variants: {}
+        }
+      }
+
+      return {
+        id: "ollama",
+        name: "Ollama (Local)",
+        source: "custom",
+        env: [],
+        options: { baseURL: "http://localhost:11434/v1" },
+        models
+      }
+    } catch (e) {
+      log.info("ollama not detected", { error: e instanceof Error ? e.message : String(e) })
+      return null
+    }
+  }
+
   const state = Instance.state(async () => {
     using _ = log.time("state")
     const config = await Config.get()
     const modelsDev = await ModelsDev.get()
     const database = mapValues(modelsDev, fromModelsDevProvider)
+
+    // Detect Ollama and inject into database
+    const ollamaProvider = await detectOllamaModels()
+    if (ollamaProvider) {
+      database["ollama"] = ollamaProvider
+    }
 
     const disabled = new Set(config.disabled_providers ?? [])
     const enabled = config.enabled_providers ? new Set(config.enabled_providers) : null
@@ -695,6 +777,7 @@ export namespace Provider {
     const sdk = new Map<number, SDK>()
 
     log.info("init")
+
 
     const configProviders = Object.entries(config.provider ?? {})
 

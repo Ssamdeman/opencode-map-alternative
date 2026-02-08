@@ -1,10 +1,13 @@
-import { createMemo } from "solid-js"
+import { createMemo, createSignal, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DateTime } from "luxon"
 import { filter, firstBy, flat, groupBy, mapValues, pipe, uniqueBy, values } from "remeda"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { useProviders } from "@/hooks/use-providers"
+import { usePlatform } from "@/context/platform"
+import { showToast } from "@opencode-ai/ui/toast"
 import { Persist, persisted } from "@/utils/persist"
+import { detectOllama, fetchOllamaModels, type LocalModelInfo } from "@/lib/ollama-discovery"
 
 export type ModelKey = { providerID: string; modelID: string }
 
@@ -20,6 +23,39 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
   name: "Models",
   init: () => {
     const providers = useProviders()
+    const platform = usePlatform()
+    const [ollamaModels, setOllamaModels] = createSignal<LocalModelInfo[]>([
+      {
+        id: "debug-model",
+        name: "DEBUG MODEL (Ollama)",
+        family: "ollama",
+        release_date: new Date().toISOString(),
+        attachment: false,
+        reasoning: false,
+        temperature: true,
+        tool_call: false,
+        limit: { context: 1024, output: 1024 }
+      }
+    ])
+
+    onMount(async () => {
+      // Re-enable detection
+      const detected = await detectOllama()
+      if (detected) {
+        console.log("Ollama detected")
+        const models = await fetchOllamaModels()
+        console.log("Fetched Ollama models:", models)
+        if (models.length > 0) {
+          setOllamaModels(models)
+          showToast({ title: "Ollama Connected", description: `Found ${models.length} local models` })
+        } else {
+          showToast({ title: "Ollama Connected", description: "No models found in Ollama" })
+        }
+      } else {
+        console.warn("Ollama detection failed")
+        showToast({ title: "Ollama Detection Failed", description: "Could not connect to http://localhost:11434" })
+      }
+    })
 
     const [store, setStore, _, ready] = persisted(
       Persist.global("model", ["model.v1"]),
@@ -36,6 +72,13 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
           ...m,
           provider: p,
         })),
+      ).concat(
+        ollamaModels().map((m) => ({
+          ...m,
+          // Adapt LocalModelInfo to match expected structure
+          provider: { id: "ollama", name: "Ollama", env: [] as string[] } as any,
+          options: {},
+        }))
       ),
     )
 

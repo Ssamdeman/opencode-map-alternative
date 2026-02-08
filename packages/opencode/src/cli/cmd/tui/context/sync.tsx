@@ -2,6 +2,7 @@ import type {
   Message,
   Agent,
   Provider,
+  Model,
   Session,
   Part,
   Config,
@@ -27,6 +28,8 @@ import { useExit } from "./exit"
 import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
+import { detectOllama, fetchOllamaModels } from "@/util/ollama-discovery"
+import { useToast } from "../ui/toast"
 import type { Path } from "@opencode-ai/sdk"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
@@ -103,6 +106,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     })
 
     const sdk = useSDK()
+    const toast = useToast()
 
     sdk.event.listen((e) => {
       const event = e.details
@@ -368,6 +372,45 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             const agents = responses[2]
             const config = responses[3]
             const sessions = responses[4]
+
+            // Ollama Detection
+            detectOllama().then(async (detected) => {
+              if (!detected) return
+              const models = await fetchOllamaModels()
+              if (models.length > 0) {
+                toast.show({
+                  title: "Ollama Detected",
+                  message: `Found ${models.length} local models`,
+                  variant: "info"
+                })
+
+                const ollamaProvider: Provider = {
+                  id: "ollama",
+                  name: "Ollama (Local)",
+                  env: [],
+                  source: "custom",
+                  options: {},
+                  models: Object.fromEntries(models.map(m => [m.id, {
+                    id: m.id,
+                    name: m.name,
+                    providerID: "ollama",
+                    family: m.family,
+                    release_date: m.release_date,
+                    cost: { input: 0, output: 0 },
+                    capabilities: {
+                      reasoning: m.reasoning,
+                      vision: false
+                    }
+                  } as any]))
+                }
+
+                setStore("provider", produce(draft => {
+                  const existing = draft.findIndex(p => p.id === "ollama")
+                  if (existing !== -1) draft[existing] = ollamaProvider
+                  else draft.push(ollamaProvider)
+                }))
+              }
+            })
 
             batch(() => {
               setStore("provider", reconcile(providers.providers))

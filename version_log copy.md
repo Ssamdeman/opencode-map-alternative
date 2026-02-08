@@ -1,21 +1,4 @@
 {
-  "version": "0.0.6",
-  "date": "2026-02-08",
-  "focus": "Local Ollama Auto-Detection & Build Script Enhancements",
-  "changes": [
-    "Backend now auto-detects local Ollama instances at startup (http://localhost:11434).",
-    "Detected Ollama models are registered as a 'ollama' provider with dynamic model list.",
-    "Added 'ollama' custom loader to Provider system for OpenAI-compatible API routing.",
-    "Fixed null-safe access in header.tsx preventing crash on model.limit.context.",
-    "Enhanced '-Nuke' flag in build.ps1 for complete data reset:",
-    "  - Wipes XDG state (~/.local/state/opencode): favorites, recent models, prompt history.",
-    "  - Wipes XDG data (~/.local/share/opencode): API keys (auth.json), sessions, storage.",
-    "  - Wipes XDG cache (~/.cache/opencode): model definitions, LSP servers.",
-    "  - Preserves XDG config (~/.config/opencode): Ollama/provider settings, agents, opencode.json."
-  ]
-}
-
-{
   "version": "0.0.5",
   "date": "2026-02-04",
   "focus": "Shell Integration & UX Stability",

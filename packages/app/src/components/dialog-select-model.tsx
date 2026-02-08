@@ -14,6 +14,7 @@ import { DialogSelectProvider } from "./dialog-select-provider"
 import { DialogManageModels } from "./dialog-manage-models"
 import { ModelTooltip } from "./model-tooltip"
 import { useLanguage } from "@/context/language"
+import { detectOllama, fetchOllamaModels } from "@/lib/ollama-discovery"
 
 const ModelList: Component<{
   provider?: string
@@ -74,8 +75,13 @@ const ModelList: Component<{
       }}
     >
       {(i) => (
-        <div class="w-full flex items-center gap-x-2 text-13-regular">
-          <span class="truncate">{i.name}</span>
+        <div class="w-full flex items-center gap-x-2 text-13-regular ml-0.5" role="option" aria-selected={local.model.current()?.id === i.id && local.model.current()?.provider.id === i.provider.id}>
+          <span class="truncate">
+            {i.name}
+            <Show when={i.provider.id !== "opencode"}>
+              <span class="opacity-50 text-xs ml-2">({i.provider.name})</span>
+            </Show>
+          </span>
           <Show when={i.provider.id === "opencode" && (!i.cost || i.cost?.input === 0)}>
             <Tag>{language.t("model.tag.free")}</Tag>
           </Show>
@@ -268,6 +274,21 @@ export const DialogSelectModel: Component<{ provider?: string }> = (props) => {
         onClick={() => dialog.show(() => <DialogManageModels />)}
       >
         {language.t("dialog.model.manage")}
+      </Button>
+      <Button
+        variant="ghost"
+        class="ml-auto mt-5 mb-6 mr-3 text-xs opacity-50 hover:opacity-100"
+        onClick={async () => {
+          const detected = await detectOllama();
+          if (detected) {
+            const models = await fetchOllamaModels();
+            window.alert(`Ollama Detected! Found ${models.length} models. Check console if list is empty.`);
+          } else {
+            window.alert("Ollama Detection Failed. Could not reach localhost:11434.");
+          }
+        }}
+      >
+        Test Ollama
       </Button>
     </Dialog>
   )

@@ -24,6 +24,7 @@ import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
+import { Transparent } from "./transparent"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -103,10 +104,10 @@ export namespace LLM {
     const base = input.small
       ? ProviderTransform.smallOptions(input.model)
       : ProviderTransform.options({
-          model: input.model,
-          sessionID: input.sessionID,
-          providerOptions: provider.options,
-        })
+        model: input.model,
+        sessionID: input.sessionID,
+        providerOptions: provider.options,
+      })
     const options: Record<string, any> = pipe(
       base,
       mergeDeep(input.model.options),
@@ -153,11 +154,11 @@ export namespace LLM {
     const maxOutputTokens = isCodex
       ? undefined
       : ProviderTransform.maxOutputTokens(
-          input.model.api.npm,
-          params.options,
-          input.model.limit.output,
-          OUTPUT_TOKEN_MAX,
-        )
+        input.model.api.npm,
+        params.options,
+        input.model.limit.output,
+        OUTPUT_TOKEN_MAX,
+      )
 
     const tools = await resolveTools(input)
 
@@ -180,6 +181,18 @@ export namespace LLM {
         execute: async () => ({ output: "", title: "", metadata: {} }),
       })
     }
+
+    // Log outbound request to transparent log
+    Transparent.logEntry(input.sessionID, "request", {
+      model: {
+        providerID: input.model.providerID,
+        modelID: input.model.id,
+      },
+      system,
+      messages: input.messages,
+      tools: Object.keys(tools),
+      options: params.options,
+    }).catch((e) => l.error("transparent log failed", { error: e }))
 
     return streamText({
       onError(error) {
@@ -219,15 +232,15 @@ export namespace LLM {
       headers: {
         ...(input.model.providerID.startsWith("opencode")
           ? {
-              "x-opencode-project": Instance.project.id,
-              "x-opencode-session": input.sessionID,
-              "x-opencode-request": input.user.id,
-              "x-opencode-client": Flag.OPENCODE_CLIENT,
-            }
+            "x-opencode-project": Instance.project.id,
+            "x-opencode-session": input.sessionID,
+            "x-opencode-request": input.user.id,
+            "x-opencode-client": Flag.OPENCODE_CLIENT,
+          }
           : input.model.providerID !== "anthropic"
             ? {
-                "User-Agent": `opencode/${Installation.VERSION}`,
-              }
+              "User-Agent": `opencode/${Installation.VERSION}`,
+            }
             : undefined),
         ...input.model.headers,
         ...headers,
@@ -236,17 +249,17 @@ export namespace LLM {
       messages: [
         ...(isCodex
           ? [
-              {
-                role: "user",
-                content: system.join("\n\n"),
-              } as ModelMessage,
-            ]
+            {
+              role: "user",
+              content: system.join("\n\n"),
+            } as ModelMessage,
+          ]
           : system.map(
-              (x): ModelMessage => ({
-                role: "system",
-                content: x,
-              }),
-            )),
+            (x): ModelMessage => ({
+              role: "system",
+              content: x,
+            }),
+          )),
         ...input.messages,
       ],
       model: wrapLanguageModel({

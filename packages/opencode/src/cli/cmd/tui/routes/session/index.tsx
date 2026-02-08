@@ -75,17 +75,18 @@ import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
+import { DialogTransparent } from "../../component/dialog-transparent"
 
 addDefaultParsers(parsers.parsers)
 
 class CustomSpeedScroll implements ScrollAcceleration {
-  constructor(private speed: number) {}
+  constructor(private speed: number) { }
 
   tick(_now?: number): number {
     return this.speed
   }
 
-  reset(): void {}
+  reset(): void { }
 }
 
 const context = createContext<{
@@ -435,7 +436,7 @@ export function Session() {
       },
       onSelect: async (dialog) => {
         const status = sync.data.session_status?.[route.sessionID]
-        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
+        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => { })
         const revert = session()?.revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
@@ -866,6 +867,18 @@ export function Session() {
           })
         }
         dialog.clear()
+      },
+    },
+    {
+      title: "View transparent log",
+      value: "session.transparent",
+      category: "Session",
+      slash: {
+        name: "transparent",
+        aliases: ["io", "raw"],
+      },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogTransparent />)
       },
     },
   ])

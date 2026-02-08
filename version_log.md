@@ -1,4 +1,17 @@
 {
+  "version": "0.0.7",
+  "date": "2026-02-08",
+  "focus": "Transparent Data Flow Logger",
+  "changes": [
+    "Added '/transparent' slash command (aliases: '/io', '/raw') to view raw AI communication logs.",
+    "Implemented session-scoped I/O logging capturing request payloads before AI streaming.",
+    "Log data stored at ~/.local/share/opencode/transparent/{sessionID}.json.",
+    "Automatic cleanup: logs deleted when session is removed.",
+    "Dialog UI shows timestamped entries with expandable JSON details."
+  ]
+}
+
+{
   "version": "0.0.6",
   "date": "2026-02-08",
   "focus": "Local Ollama Auto-Detection & Build Script Enhancements",

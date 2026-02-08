@@ -219,4 +219,53 @@ Session state (tracks which model is active)
 
 
 
+02/08/2026:
+**ANALYSIS REPORT: MULTI-MODEL ORCHESTRATION**
 
+**Status:** Complete
+**Feature:** Transparent Data Flow Analysis
+
+**Observation**
+You observed 3 distinct LLM calls for a single user message "who are you?".
+
+1. `gpt-5-nano` (Title Generator)
+2. `kimi-k2.5-free` (Primary Response)
+3. `gpt-5-nano` (Summarizer)
+
+**Architectural Root Cause**
+OpenCode employs a **"Sidecar Agent" pattern**. The system decouples metadata maintenance from the primary conversational flow to optimize for latency and cost. The main "thinking" process triggers asynchronous background workers that utilize lightweight "Utility Models".
+
+**Detailed Flow Analysis**
+
+1. **The Primary Thread (Blocking)**
+* **Agent:** `User Selected` (e.g., `kimi-k2.5-free`)
+* **Task:** The actual conversation.
+* **Action:** Receives user input, executes tools, and streams the response to the UI. This is the only "blocking" call the user waits for.
+
+
+2. **The Title Worker (Async / Background)**
+* **Agent:** `title` (Hardcoded to `gpt-5-nano` in `src/agent/agent.ts`)
+* **Trigger:** Detects if `session.title` is generic or empty on the first turn.
+* **Purpose:** Generates a semantic filename/title for the session list (e.g., "Identity Inquiry" instead of "Session 1").
+* **Why:** Runs separately so the user doesn't wait for a title before seeing the answer.
+
+
+3. **The Summary Worker (Async / Background)**
+* **Agent:** `summary` (Hardcoded to `gpt-5-nano` in `src/agent/agent.ts`)
+* **Trigger:** Post-response event.
+* **Purpose:** Generates a rolling summary of the conversation context. This is used for **Context Compaction**. When a conversation gets too long, the system drops old messages but keeps this AI-generated summary to preserve "memory" without blowing up the token window.
+
+
+
+**Code References**
+
+* **Agent Definitions:** `packages/opencode/src/agent/agent.ts` defines the `title` and `summary` agents as hidden, native agents.
+* **Summarization Logic:** `packages/opencode/src/session/summary.ts` handles the `SessionSummary.summarize` logic, processing messages to create the compressed state.
+
+**Conclusion**
+The system is working as designed. It uses a "Split-Brain" architecture:
+
+* **High IQ / High Cost Model** (Kimi) for the hard work.
+* **Low IQ / Low Cost Model** (GPT-5 Nano) for administrative housekeeping.
+
+the the tool it self can do the job of title and summary generation. also the dual-brain. we can make seperate tasks. 

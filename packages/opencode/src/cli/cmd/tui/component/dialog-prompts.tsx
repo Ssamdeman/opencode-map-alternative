@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
+import { useLocal } from "@tui/context/local"
 import { For, Show, createMemo, createSignal } from "solid-js"
 
 // Import prompts statically like system.ts does
@@ -30,6 +31,7 @@ export function DialogPrompts() {
     const { theme } = useTheme()
     const route = useRoute()
     const sync = useSync()
+    const local = useLocal()
 
     // Get current session ID from route
     const sessionID = () => (route.data.type === "session" ? route.data.sessionID : undefined)
@@ -44,12 +46,9 @@ export function DialogPrompts() {
     // State for selected entry (to expand details)
     const [selectedIdx, setSelectedIdx] = createSignal<number | null>(null)
 
-    // Get current model to determine active system prompt
-    const activeModelID = createMemo(() => {
-        const defaults = sync.data.provider_default
-        const providerID = Object.keys(defaults)[0]
-        return defaults[providerID] || ""
-    })
+    // Get current model from local context (the actual user-selected model)
+    const currentModel = createMemo(() => local.model.current())
+    const modelParsed = createMemo(() => local.model.parsed())
 
     // Determine which system prompt is active
     const getActiveSystemPrompt = (modelID: string): string => {
@@ -62,7 +61,8 @@ export function DialogPrompts() {
 
     // Build prompt entries from static imports
     const entries = createMemo((): PromptEntry[] => {
-        const modelID = activeModelID()
+        const model = currentModel()
+        const modelID = model?.modelID || ""
         const activeType = getActiveSystemPrompt(modelID)
 
         const prompts: PromptEntry[] = []
@@ -143,9 +143,9 @@ export function DialogPrompts() {
                     <text fg={theme.text} attributes={TextAttributes.BOLD}>
                         Session Prompts
                     </text>
-                    <Show when={activeModelID()}>
+                    <Show when={modelParsed().model}>
                         <text fg={theme.textMuted}>
-                            Model: {activeModelID().slice(0, 20)}
+                            Model: {modelParsed().model}
                         </text>
                     </Show>
                 </box>

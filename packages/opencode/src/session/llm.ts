@@ -182,8 +182,9 @@ export namespace LLM {
       })
     }
 
-    // Log outbound request to transparent log
-    Transparent.logEntry(input.sessionID, "request", {
+    // Log outbound request to transparent log and get correlation ID
+    const correlationId = await Transparent.logRequest(input.sessionID, {
+      agent: input.agent.name,
       model: {
         providerID: input.model.providerID,
         modelID: input.model.id,
@@ -192,9 +193,32 @@ export namespace LLM {
       messages: input.messages,
       tools: Object.keys(tools),
       options: params.options,
-    }).catch((e) => l.error("transparent log failed", { error: e }))
+    }).catch((e) => {
+      l.error("transparent log failed", { error: e })
+      return undefined
+    })
 
     return streamText({
+      onFinish: async (result) => {
+        // Log the response to transparent log with correlation ID
+        if (correlationId) {
+          const usage = result.usage as any
+          Transparent.logResponse(input.sessionID, correlationId, {
+            agent: input.agent.name,
+            text: result.text || "",
+            usage: usage ? {
+              promptTokens: usage.promptTokens ?? usage.inputTokens,
+              completionTokens: usage.completionTokens ?? usage.outputTokens,
+              totalTokens: usage.totalTokens ?? ((usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)),
+            } : undefined,
+            toolCalls: result.toolCalls?.map((tc: any) => ({
+              name: tc.toolName,
+              args: tc.args ?? tc.input,
+            })),
+            finishReason: result.finishReason,
+          }).catch((e) => l.error("transparent response log failed", { error: e }))
+        }
+      },
       onError(error) {
         l.error("stream error", {
           error,

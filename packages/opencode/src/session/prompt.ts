@@ -568,12 +568,7 @@ export namespace SessionPrompt {
         messages: msgs,
       })
 
-      if (step === 1) {
-        SessionSummary.summarize({
-          sessionID: sessionID,
-          messageID: lastUser.id,
-        })
-      }
+
 
       const sessionMessages = clone(msgs)
 

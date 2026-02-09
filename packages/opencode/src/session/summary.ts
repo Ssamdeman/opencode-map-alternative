@@ -132,7 +132,7 @@ export namespace SessionSummary {
 
     const textPart = msgWithParts.parts.find((p) => p.type === "text" && !p.synthetic) as MessageV2.TextPart
     if (textPart && !userMsg.summary?.title) {
-      const agent = await Agent.get("title")
+      const agent = await Agent.get("summary")
       if (!agent) return
       const stream = await LLM.stream({
         agent,
@@ -160,7 +160,7 @@ export namespace SessionSummary {
         retries: 3,
       })
       const result = await stream.text
-      log.info("title", { title: result })
+      log.info("summary", { summary: result })
       userMsg.summary.title = result
       await Session.updateMessage(userMsg)
     }
@@ -182,7 +182,7 @@ export namespace SessionSummary {
         }
       })
       const changed = next.some((item, i) => item.file !== diffs[i]?.file)
-      if (changed) Storage.write(["session_diff", input.sessionID], next).catch(() => {})
+      if (changed) Storage.write(["session_diff", input.sessionID], next).catch(() => { })
       return next
     },
   )

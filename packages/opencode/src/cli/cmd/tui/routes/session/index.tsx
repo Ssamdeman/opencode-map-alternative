@@ -75,7 +75,7 @@ import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
-import { DialogTransparent } from "../../component/dialog-transparent"
+
 
 addDefaultParsers(parsers.parsers)
 
@@ -869,18 +869,7 @@ export function Session() {
         dialog.clear()
       },
     },
-    {
-      title: "View transparent log",
-      value: "session.transparent",
-      category: "Session",
-      slash: {
-        name: "transparent",
-        aliases: ["io", "raw"],
-      },
-      onSelect: (dialog) => {
-        dialog.replace(() => <DialogTransparent />)
-      },
-    },
+
   ])
 
   const revertInfo = createMemo(() => session()?.revert)

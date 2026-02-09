@@ -14,6 +14,7 @@ import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogTransparent } from "@tui/component/dialog-transparent"
+import { DialogPrompts } from "@tui/component/dialog-prompts"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
@@ -457,6 +458,18 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogTransparent />)
+      },
+      category: "System",
+    },
+    {
+      title: "View session prompts",
+      value: "opencode.prompts",
+      slash: {
+        name: "prompts",
+        aliases: ["prompt", "systemprompt"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogPrompts />)
       },
       category: "System",
     },

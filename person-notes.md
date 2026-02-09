@@ -269,3 +269,230 @@ The system is working as designed. It uses a "Split-Brain" architecture:
 * **Low IQ / Low Cost Model** (GPT-5 Nano) for administrative housekeeping.
 
 the the tool it self can do the job of title and summary generation. also the dual-brain. we can make seperate tasks. 
+
+
+
+FEATURE CONCEPT: Session-Scoped Prompt Editor (/prompts)
+
+CORE IDEA
+Allow users to view, edit, and override system prompts for their current session, enabling real-time prompt experimentation without modifying source files.
+
+HOW IT WORKS
+User Journey:
+1. User types /prompts
+
+Dialog opens showing all active prompts for current session
+Lists prompts being sent to AI models
+
+2. Dialog displays prompt inventory:
+   ┌─ SESSION PROMPTS ────────────────────────────┐
+   │                                               │
+   │ [TITLE GENERATOR]                             │
+   │ Model: gpt-5-nano                             │
+   │ Source: src/agent/prompt/title.txt            │
+   │ Status: ● DEFAULT                             │
+   │ Preview: "You are a title generator..."       │
+   │ [View] [Edit] [Reset]                         │
+   │                                               │
+   │ [MAIN ASSISTANT]                              │
+   │ Model: kimi-k2.5-free (selected)              │
+   │ Source: src/session/prompt/beast.txt          │
+   │ Status: ● DEFAULT                             │
+   │ Preview: "You are opencode, an interactive..." │
+   │ [View] [Edit] [Reset]                         │
+   │                                               │
+   │ [INSTRUCTION CONTEXT]                         │
+   │ Source: AGENTS.md                             │
+   │ Status: ● DEFAULT                             │
+   │ Preview: "# opencode agent guidelines..."     │
+   │ [View] [Edit] [Reset]                         │
+   │                                               │
+   └───────────────────────────────────────────────┘
+3. User clicks [Edit] on any prompt:
+
+Full-screen text editor opens
+Shows complete prompt content
+User modifies text
+Click [Save] → stores override in session cache
+
+4. Override applied:
+
+Next AI request checks SessionPromptCache
+If override exists → use custom prompt
+If no override → load from .txt file
+Transparent logger shows custom prompt was sent
+
+5. Session ends:
+
+SessionPromptCache auto-clears
+Next session starts fresh with defaults
+No persistence across sessions
+
+
+DATA FLOW
+User Message Input
+  ↓
+buildRequestParts() (existing)
+  ↓
+SystemPrompt.get(sessionID, promptType) ← NEW CHECK
+  ↓
+  ├─ Check SessionPromptCache.get(sessionID, promptType)
+  │   ├─ If override exists → return custom prompt
+  │   └─ If no override → load from .txt file (existing)
+  ↓
+AI Request Payload (with prompt)
+  ↓
+Send to Model
+  ↓
+Transparent Logger captures (already works)
+
+WHAT CHANGES
+New Files:
+1. /src/session/prompt-cache.ts
+typescript// Session-scoped prompt override storage
+namespace SessionPromptCache {
+  type PromptType = "title" | "assistant" | "instruction"
+  
+  const cache = createScopedCache<{
+    sessionID: string
+    promptType: PromptType
+    customPrompt: string
+  }>({
+    maxEntries: 100, // Max 100 sessions
+    ttlMs: 1000 * 60 * 60 * 4 // 4 hours
+  })
+  
+  export function set(sessionID: string, type: PromptType, prompt: string)
+  export function get(sessionID: string, type: PromptType): string | null
+  export function clear(sessionID: string, type?: PromptType)
+  export function isOverridden(sessionID: string, type: PromptType): boolean
+}
+2. /src/session/prompt-editor.ts
+typescript// Slash command handler
+namespace PromptEditor {
+  export const command = SlashCommand.define({
+    name: "prompts",
+    aliases: ["prompt", "systemprompt"],
+    description: "View and edit session prompts",
+    
+    execute: async (ctx) => {
+      const prompts = await getSessionPrompts(ctx.sessionID)
+      return Dialog.open({
+        title: "Session Prompts",
+        content: <PromptEditorDialog prompts={prompts} />
+      })
+    }
+  })
+}
+3. /src/ui/dialog/prompt-editor.tsx
+typescript// UI component for prompt editing
+function PromptEditorDialog(props: { prompts: PromptInfo[] }) {
+  // Reuse existing dialog components
+  // Text editor with save/reset/cancel
+}
+
+Modified Files:
+1. /src/session/system.ts (SystemPrompt namespace)
+typescript// BEFORE:
+export function get(model: string): string {
+  return Bun.file(`./src/session/prompt/${model}.txt`).text()
+}
+
+// AFTER:
+export function get(sessionID: string, model: string, type: PromptType): string {
+  // Check for session override first
+  const override = SessionPromptCache.get(sessionID, type)
+  if (override) return override
+  
+  // Fall back to file-based prompt
+  return Bun.file(`./src/session/prompt/${model}.txt`).text()
+}
+2. /src/acp/agent.ts (where AI requests are built)
+typescript// When building system prompt for AI request:
+const systemPrompt = SystemPrompt.get(
+  sessionID,
+  model.modelID,
+  "assistant" // or "title", "instruction"
+)
+3. Session cleanup (wherever sessions are destroyed)
+typescriptSession.onDestroy((sessionID) => {
+  SessionPromptCache.clear(sessionID) // Clean up overrides
+})
+```
+
+---
+
+## ARCHITECTURE DECISIONS
+
+### **1. Storage Strategy:**
+- Use `createScopedCache` (existing utility)
+- Automatic TTL-based cleanup (4 hours)
+- Session ID scoped (not global)
+- Clears on session destroy
+
+### **2. Prompt Discovery:**
+Three prompt sources identified from your transparent log:
+```
+1. Title Generator    → src/agent/prompt/title.txt
+2. Main Assistant     → src/session/prompt/beast.txt (or model-specific)
+3. Instructions       → AGENTS.md (loaded by InstructionPrompt)
+3. Override Injection Point:
+Modify SystemPrompt.get() to check cache before loading files:
+typescriptSessionPromptCache → (if exists) → return custom
+       ↓ (if not)
+Load from .txt file → return default
+```
+
+### **4. UI Pattern:**
+- Reuse existing `Dialog` component
+- Text editor with syntax highlighting (markdown)
+- Show diff indicator: `● DEFAULT` vs `● CUSTOM`
+- Reset button restores original
+
+---
+
+## START SIMPLE
+
+### **Phase 1: Read-Only Viewer** (v0.0.8)
+```
+✓ /prompts command shows current prompts
+✓ View full prompt content
+✓ Identify which prompts are active
+✗ No editing yet
+```
+
+### **Phase 2: Session Editing** (v0.0.9)
+```
+✓ Edit button opens text editor
+✓ Save applies to current session
+✓ SessionPromptCache storage
+✓ Transparent logger shows custom prompts
+✓ Reset button clears override
+```
+
+### **Phase 3: Advanced Features** (v0.1.0)
+```
+✓ Export/import custom prompts
+✓ Diff view (default vs custom)
+✓ Template variables {{sessionID}}, {{date}}
+✓ Prompt history/versioning
+
+⚠️ File-Based Prompt Loading:
+typescript// Current pattern (from wiki):
+Bun.file('./src/session/prompt/title.txt').text()
+
+
+⚠️ Session Lifecycle Integration:
+typescript// Where does session cleanup happen?
+// Need to hook into Session.destroy() or equivalent
+// to call SessionPromptCache.clear(sessionID)
+
+READY FOR AGENT
+This feature needs:
+
+✅ Clear data flow mapped
+✅ Storage strategy defined (createScopedCache)
+✅ Injection points identified (SystemPrompt.get)
+✅ UI components scoped (existing Dialog)
+⚠️ Need to verify prompt-to-file mapping
+⚠️ Need to locate session cleanup hooks

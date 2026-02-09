@@ -18,12 +18,14 @@ export namespace Transparent {
      */
     export type Entry = {
         id: string
+        correlationId?: string  // Links request with corresponding response
         timestamp: number
         type: "request" | "response"
         data: RequestData | ResponseData
     }
 
     export type RequestData = {
+        agent: string
         model: {
             providerID: string
             modelID: string
@@ -35,6 +37,7 @@ export namespace Transparent {
     }
 
     export type ResponseData = {
+        agent: string
         text: string
         usage?: {
             promptTokens?: number
@@ -56,7 +59,84 @@ export namespace Transparent {
     }
 
     /**
-     * Log an entry for a session
+     * Log a request entry for a session
+     * Returns a correlation ID to link with the response
+     */
+    export async function logRequest(sessionID: string, data: RequestData): Promise<string> {
+        const correlationId = ulid()
+        const entry: Entry = {
+            id: ulid(),
+            correlationId,
+            timestamp: Date.now(),
+            type: "request",
+            data,
+        }
+
+        try {
+            const filepath = getPath(sessionID)
+            const dir = path.dirname(filepath)
+            await fs.mkdir(dir, { recursive: true })
+
+            // Read existing entries or start fresh
+            let entries: Entry[] = []
+            try {
+                const existing = await Bun.file(filepath).json()
+                if (Array.isArray(existing)) {
+                    entries = existing
+                }
+            } catch {
+                // File doesn't exist yet, start with empty array
+            }
+
+            entries.push(entry)
+            await Bun.write(filepath, JSON.stringify(entries, null, 2))
+            log.info("logged request", { sessionID, correlationId })
+        } catch (e) {
+            log.error("failed to log request", { sessionID, error: e })
+        }
+
+        return correlationId
+    }
+
+    /**
+     * Log a response entry for a session, linked to a request
+     */
+    export async function logResponse(sessionID: string, correlationId: string, data: ResponseData): Promise<void> {
+        const entry: Entry = {
+            id: ulid(),
+            correlationId,
+            timestamp: Date.now(),
+            type: "response",
+            data,
+        }
+
+        try {
+            const filepath = getPath(sessionID)
+            const dir = path.dirname(filepath)
+            await fs.mkdir(dir, { recursive: true })
+
+            // Read existing entries or start fresh
+            let entries: Entry[] = []
+            try {
+                const existing = await Bun.file(filepath).json()
+                if (Array.isArray(existing)) {
+                    entries = existing
+                }
+            } catch {
+                // File doesn't exist yet, start with empty array
+            }
+
+            entries.push(entry)
+            await Bun.write(filepath, JSON.stringify(entries, null, 2))
+            log.info("logged response", { sessionID, correlationId })
+        } catch (e) {
+            log.error("failed to log response", { sessionID, error: e })
+        }
+    }
+
+    /**
+     * Legacy function - use logRequest/logResponse instead
+     * @deprecated
      */
     export async function logEntry(sessionID: string, type: "request" | "response", data: RequestData | ResponseData): Promise<void> {
         const entry: Entry = {

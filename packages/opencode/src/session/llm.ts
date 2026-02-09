@@ -25,6 +25,7 @@ import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
 import { Transparent } from "./transparent"
+import { SessionPromptCache, type PromptKey } from "./prompt-cache"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -67,12 +68,32 @@ export namespace LLM {
     ])
     const isCodex = provider.id === "openai" && auth?.type === "oauth"
 
+    // Determine system prompt key for cache lookup
+    const getSystemPromptKey = (model: Provider.Model): PromptKey => {
+      if (model.api.id.includes("gpt-5")) return "system:codex"
+      if (model.api.id.includes("gpt-") || model.api.id.includes("o1") || model.api.id.includes("o3")) return "system:beast"
+      if (model.api.id.includes("gemini-")) return "system:gemini"
+      if (model.api.id.includes("claude")) return "system:anthropic"
+      return "system:qwen"
+    }
+
+    // Check for cached system prompt override
+    const systemPromptKey = getSystemPromptKey(input.model)
+    const cachedSystemPrompt = SessionPromptCache.get(input.sessionID, systemPromptKey)
+    const hasPromptOverride = cachedSystemPrompt !== undefined
+
     const system = []
     system.push(
       [
-        // use agent prompt otherwise provider prompt
+        // use agent prompt otherwise provider prompt (or cached override)
         // For Codex sessions, skip SystemPrompt.provider() since it's sent via options.instructions
-        ...(input.agent.prompt ? [input.agent.prompt] : isCodex ? [] : SystemPrompt.provider(input.model)),
+        ...(input.agent.prompt
+          ? [input.agent.prompt]
+          : cachedSystemPrompt
+            ? [cachedSystemPrompt]
+            : isCodex
+              ? []
+              : SystemPrompt.provider(input.model)),
         // any custom prompt passed into this call
         ...input.system,
         // any custom prompt from last user message
@@ -193,6 +214,7 @@ export namespace LLM {
       messages: input.messages,
       tools: Object.keys(tools),
       options: params.options,
+      customPrompt: hasPromptOverride,
     }).catch((e) => {
       l.error("transparent log failed", { error: e })
       return undefined

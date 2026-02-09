@@ -34,6 +34,7 @@ export namespace Transparent {
         messages: unknown[]
         tools: string[]
         options: Record<string, unknown>
+        customPrompt?: boolean  // True if using a session-edited prompt override
     }
 
     export type ResponseData = {

@@ -1,4 +1,21 @@
 {
+  "version": "0.0.8",
+  "date": "2026-02-09",
+  "focus": "Session Prompt Editor",
+  "changes": [
+    "Added '/prompts' slash command to view all system and agent prompts.",
+    "Dialog displays active prompt based on currently selected model.",
+    "Full prompt content shown in expanded view (no truncation).",
+    "Created SessionPromptCache module for session-scoped prompt overrides with 4-hour TTL.",
+    "Integrated cache cleanup into Session.remove() for automatic cleanup.",
+    "Modified llm.ts to check cache for system prompt overrides before using defaults.",
+    "Added 'customPrompt' flag to Transparent logger RequestData.",
+    "Added Edit UI with textarea, Save/Cancel buttons, and edited indicator.",
+    "KNOWN ISSUE: Save functionality (Ctrl+S and button click) does not work."
+  ]
+}
+
+{
   "version": "0.0.7",
   "date": "2026-02-08",
   "focus": "Transparent Data Flow Logger",

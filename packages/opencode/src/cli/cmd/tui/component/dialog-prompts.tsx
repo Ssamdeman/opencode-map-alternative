@@ -1,9 +1,11 @@
-import { TextAttributes } from "@opentui/core"
+import { TextAttributes, type TextareaRenderable } from "@opentui/core"
+import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { useLocal } from "@tui/context/local"
-import { For, Show, createMemo, createSignal } from "solid-js"
+import { For, Show, createMemo, createSignal, createEffect, onMount } from "solid-js"
+import { SessionPromptCache, type PromptKey } from "@/session/prompt-cache"
 
 // Import prompts statically like system.ts does
 import PROMPT_ANTHROPIC from "@/session/prompt/anthropic.txt"
@@ -24,7 +26,10 @@ type PromptEntry = {
     source: string
     type: "system" | "instruction" | "agent"
     content: string
+    originalContent: string
     active?: boolean
+    cacheKey: PromptKey
+    isEdited?: boolean
 }
 
 export function DialogPrompts() {
@@ -36,15 +41,40 @@ export function DialogPrompts() {
     // Get current session ID from route
     const sessionID = () => (route.data.type === "session" ? route.data.sessionID : undefined)
 
-    // Get session info
-    const session = () => {
-        const id = sessionID()
-        if (!id) return undefined
-        return sync.session.get(id)
-    }
-
     // State for selected entry (to expand details)
     const [selectedIdx, setSelectedIdx] = createSignal<number | null>(null)
+    // State for edit mode
+    const [editMode, setEditMode] = createSignal(false)
+    // State for refresh trigger
+    const [refreshTrigger, setRefreshTrigger] = createSignal(0)
+
+    // Reference to textarea
+    let textareaRef: TextareaRenderable | undefined
+
+    // Keyboard handler for Ctrl+S save
+    useKeyboard((evt) => {
+        if (editMode() && (evt.name === "ctrl+s" || evt.name === "C-s")) {
+            console.log("[DEBUG] Ctrl+S detected via useKeyboard")
+            evt.preventDefault?.()
+            doSave()
+        }
+    })
+
+    // Actual save logic (extracted so it can be called from multiple places)
+    const doSave = () => {
+        console.log("[DEBUG] doSave called")
+        const sid = sessionID()
+        const idx = selectedIdx()
+        console.log("[DEBUG] sid:", sid, "idx:", idx, "textareaRef:", !!textareaRef)
+        if (!sid || idx === null || !textareaRef) return
+
+        const entry = entries()[idx]
+        const newContent = textareaRef.plainText
+        console.log("[DEBUG] Saving:", newContent?.slice(0, 30))
+        SessionPromptCache.set(sid, entry.cacheKey, newContent)
+        setEditMode(false)
+        setRefreshTrigger(r => r + 1)
+    }
 
     // Get current model from local context (the actual user-selected model)
     const currentModel = createMemo(() => local.model.current())
@@ -61,9 +91,12 @@ export function DialogPrompts() {
 
     // Build prompt entries from static imports
     const entries = createMemo((): PromptEntry[] => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        refreshTrigger() // dependency on refresh trigger
         const model = currentModel()
         const modelID = model?.modelID || ""
         const activeType = getActiveSystemPrompt(modelID)
+        const sid = sessionID()
 
         const prompts: PromptEntry[] = []
 
@@ -74,33 +107,47 @@ export function DialogPrompts() {
             { name: "Gemini", key: "gemini", content: PROMPT_GEMINI, source: "session/prompt/gemini.txt" },
             { name: "Qwen (Default)", key: "qwen", content: PROMPT_QWEN, source: "session/prompt/qwen.txt" },
             { name: "Codex Header", key: "codex", content: PROMPT_CODEX, source: "session/prompt/codex_header.txt" },
-        ]
+        ] as const
 
         for (const sp of systemPrompts) {
             const isActive = sp.key === activeType
+            const cacheKey = `system:${sp.key}` as PromptKey
+            const cachedContent = sid ? SessionPromptCache.get(sid, cacheKey) : undefined
+            const isEdited = cachedContent !== undefined
+
             prompts.push({
                 name: isActive ? `${sp.name} ★ ACTIVE` : sp.name,
                 source: sp.source,
                 type: "system",
-                content: sp.content?.slice(0, 2000) || "(empty)",
+                content: cachedContent ?? sp.content ?? "(empty)",
+                originalContent: sp.content ?? "",
                 active: isActive,
+                cacheKey,
+                isEdited,
             })
         }
 
         // Agent prompts
         const agentPrompts = [
-            { name: "Title Generator", content: PROMPT_TITLE, source: "agent/prompt/title.txt" },
-            { name: "Summary Generator", content: PROMPT_SUMMARY, source: "agent/prompt/summary.txt" },
-            { name: "Compaction", content: PROMPT_COMPACTION, source: "agent/prompt/compaction.txt" },
-            { name: "Explore", content: PROMPT_EXPLORE, source: "agent/prompt/explore.txt" },
-        ]
+            { name: "Title Generator", content: PROMPT_TITLE, source: "agent/prompt/title.txt", key: "title" },
+            { name: "Summary Generator", content: PROMPT_SUMMARY, source: "agent/prompt/summary.txt", key: "summary" },
+            { name: "Compaction", content: PROMPT_COMPACTION, source: "agent/prompt/compaction.txt", key: "compaction" },
+            { name: "Explore", content: PROMPT_EXPLORE, source: "agent/prompt/explore.txt", key: "explore" },
+        ] as const
 
         for (const ap of agentPrompts) {
+            const cacheKey = `agent:${ap.key}` as PromptKey
+            const cachedContent = sid ? SessionPromptCache.get(sid, cacheKey) : undefined
+            const isEdited = cachedContent !== undefined
+
             prompts.push({
                 name: ap.name,
                 source: ap.source,
                 type: "agent",
-                content: ap.content?.slice(0, 1500) || "(empty)",
+                content: cachedContent ?? ap.content ?? "(empty)",
+                originalContent: ap.content ?? "",
+                cacheKey,
+                isEdited,
             })
         }
 
@@ -135,6 +182,43 @@ export function DialogPrompts() {
         }
     }
 
+    // Handler: Save edited prompt (delegates to doSave)
+    const handleSave = () => {
+        console.log("[DEBUG] handleSave button clicked")
+        doSave()
+    }
+
+    // Handler: Reset to original
+    const handleReset = () => {
+        const sid = sessionID()
+        const idx = selectedIdx()
+        if (!sid || idx === null) return
+
+        const entry = entries()[idx]
+        SessionPromptCache.remove(sid, entry.cacheKey)
+        setEditMode(false)
+        setRefreshTrigger(r => r + 1)
+    }
+
+    // Handler: Toggle edit mode
+    const handleEdit = () => {
+        const idx = selectedIdx()
+        if (idx === null) return
+        setEditMode(true)
+    }
+
+    // Handler: Cancel edit
+    const handleCancelEdit = () => {
+        setEditMode(false)
+    }
+
+    // Focus textarea when entering edit mode
+    createEffect(() => {
+        if (editMode() && textareaRef) {
+            textareaRef.focus()
+        }
+    })
+
     return (
         <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1} flexDirection="column">
             {/* Header */}
@@ -154,7 +238,7 @@ export function DialogPrompts() {
 
             {/* Entry count */}
             <text fg={theme.textMuted}>
-                {entries().length} prompts • ★ = active for current model
+                {entries().length} prompts • ★ = active for current model • ✎ = edited
             </text>
 
             {/* Legend */}
@@ -188,6 +272,9 @@ export function DialogPrompts() {
                                         >
                                             {entry.name}
                                         </text>
+                                        <Show when={entry.isEdited}>
+                                            <text fg={theme.warning} flexShrink={0}>✎</text>
+                                        </Show>
                                         <text fg={theme.textMuted} flexShrink={0}>
                                             [{entry.source.split(/[/\\]/).pop()}]
                                         </text>
@@ -205,12 +292,13 @@ export function DialogPrompts() {
             }>
                 {/* Expanded single item view */}
                 <box flexDirection="column">
-                    <box
-                        flexDirection="row"
-                        gap={1}
-                        onMouseUp={() => setSelectedIdx(null)}
-                    >
-                        <text fg={theme.primary}>← Back</text>
+                    <box flexDirection="row" gap={1}>
+                        <text
+                            fg={theme.primary}
+                            onMouseUp={() => { setSelectedIdx(null); setEditMode(false) }}
+                        >
+                            ← Back
+                        </text>
                         <text fg={theme.textMuted}>|</text>
                         <text
                             flexShrink={0}
@@ -224,19 +312,74 @@ export function DialogPrompts() {
                         >
                             {entries()[selectedIdx()!].name}
                         </text>
+                        <Show when={entries()[selectedIdx()!].isEdited}>
+                            <text fg={theme.warning}>✎ (edited)</text>
+                        </Show>
                     </box>
-                    <box paddingLeft={1} paddingTop={1}>
-                        <scrollbox maxHeight={18}>
-                            <text fg={theme.text} wrapMode="word">
-                                {entries()[selectedIdx()!].content}
+
+                    {/* Action buttons */}
+                    <box flexDirection="row" gap={2} paddingTop={1}>
+                        <Show when={!editMode()}>
+                            <text
+                                fg={theme.info}
+                                onMouseUp={handleEdit}
+                            >
+                                [Edit]
                             </text>
-                        </scrollbox>
+                        </Show>
+                        <Show when={editMode()}>
+                            <text
+                                fg={theme.success}
+                                onMouseUp={handleSave}
+                            >
+                                [Save]
+                            </text>
+                            <text
+                                fg={theme.textMuted}
+                                onMouseUp={handleCancelEdit}
+                            >
+                                [Cancel]
+                            </text>
+                        </Show>
+                        <Show when={entries()[selectedIdx()!].isEdited}>
+                            <text
+                                fg={theme.warning}
+                                onMouseUp={handleReset}
+                            >
+                                [Reset to Original]
+                            </text>
+                        </Show>
+                    </box>
+
+                    {/* Content view or edit mode */}
+                    <box paddingLeft={1} paddingTop={1}>
+                        <Show when={editMode()} fallback={
+                            <scrollbox maxHeight={16}>
+                                <text fg={theme.text} wrapMode="word">
+                                    {entries()[selectedIdx()!].content}
+                                </text>
+                            </scrollbox>
+                        }>
+                            <textarea
+                                height={16}
+                                initialValue=""
+                                placeholder="Enter your custom prompt here..."
+                                ref={(val: TextareaRenderable) => { textareaRef = val }}
+                                textColor={theme.text}
+                                focusedTextColor={theme.text}
+                                cursorColor={theme.text}
+                                onSubmit={handleSave}
+                                keyBindings={[{ name: "ctrl+s", action: "submit" }]}
+                            />
+                        </Show>
                     </box>
                 </box>
             </Show>
 
             {/* Footer hint */}
-            <text fg={theme.textMuted}>Click entry to expand • Read-only view (Phase 1)</text>
+            <text fg={theme.textMuted}>
+                Click entry to expand • {editMode() ? "Editing: Ctrl+S to save, Esc to cancel" : "Click Edit to modify"}
+            </text>
         </box>
     )
 }

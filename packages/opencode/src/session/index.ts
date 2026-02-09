@@ -23,6 +23,7 @@ import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
 import { Transparent } from "./transparent"
+import { SessionPromptCache } from "./prompt-cache"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -357,6 +358,8 @@ export namespace Session {
       }
       // Clean up transparent logs for this session
       await Transparent.clear(sessionID).catch(() => { })
+      // Clean up session prompt overrides
+      SessionPromptCache.clear(sessionID)
       await unshare(sessionID).catch(() => { })
       for (const msg of await Storage.list(["message", sessionID])) {
         for (const part of await Storage.list(["part", msg.at(-1)!])) {

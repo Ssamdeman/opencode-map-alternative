@@ -1,11 +1,11 @@
 import { TextAttributes, type TextareaRenderable } from "@opentui/core"
-import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { useLocal } from "@tui/context/local"
 import { For, Show, createMemo, createSignal, createEffect, onMount } from "solid-js"
 import { SessionPromptCache, type PromptKey } from "@/session/prompt-cache"
+import { useToast } from "../ui/toast"
 
 // Import prompts statically like system.ts does
 import PROMPT_ANTHROPIC from "@/session/prompt/anthropic.txt"
@@ -37,9 +37,15 @@ export function DialogPrompts() {
     const route = useRoute()
     const sync = useSync()
     const local = useLocal()
+    const toast = useToast()
 
     // Get current session ID from route
-    const sessionID = () => (route.data.type === "session" ? route.data.sessionID : undefined)
+    const sessionID = () => {
+        const type = route.data.type
+        const sid = type === "session" ? route.data.sessionID : undefined
+        toast.show({ message: `[SID] route.type=${type} sid=${sid?.slice(0, 8) || "NONE"}`, variant: sid ? "info" : "error" })
+        return sid
+    }
 
     // State for selected entry (to expand details)
     const [selectedIdx, setSelectedIdx] = createSignal<number | null>(null)
@@ -51,27 +57,31 @@ export function DialogPrompts() {
     // Reference to textarea
     let textareaRef: TextareaRenderable | undefined
 
-    // Keyboard handler for Ctrl+S save
-    useKeyboard((evt) => {
-        if (editMode() && (evt.name === "ctrl+s" || evt.name === "C-s")) {
-            console.log("[DEBUG] Ctrl+S detected via useKeyboard")
-            evt.preventDefault?.()
-            doSave()
-        }
-    })
-
-    // Actual save logic (extracted so it can be called from multiple places)
+    // Actual save logic
     const doSave = () => {
-        console.log("[DEBUG] doSave called")
+        toast.show({ message: "[1] doSave entered", variant: "info" })
         const sid = sessionID()
         const idx = selectedIdx()
-        console.log("[DEBUG] sid:", sid, "idx:", idx, "textareaRef:", !!textareaRef)
-        if (!sid || idx === null || !textareaRef) return
+        if (!sid || idx === null || !textareaRef) {
+            toast.show({ message: `[2] FAIL: missing sid=${sid} idx=${idx} ref=${!!textareaRef}`, variant: "error" })
+            return
+        }
+        if (!editMode()) {
+            toast.show({ message: "[3] FAIL: editMode false", variant: "error" })
+            return
+        }
+
+        const newContent = textareaRef.plainText?.trim()
+        toast.show({ message: `[4] plainText: ${newContent?.slice(0, 20) || "EMPTY"}`, variant: "info" })
+        if (!newContent) {
+            toast.show({ message: "[5] FAIL: content empty", variant: "error" })
+            return
+        }
 
         const entry = entries()[idx]
-        const newContent = textareaRef.plainText
-        console.log("[DEBUG] Saving:", newContent?.slice(0, 30))
+        toast.show({ message: `[6] writing cache key=${entry.cacheKey}`, variant: "info" })
         SessionPromptCache.set(sid, entry.cacheKey, newContent)
+        toast.show({ message: "[7] done", variant: "success" })
         setEditMode(false)
         setRefreshTrigger(r => r + 1)
     }
@@ -184,7 +194,7 @@ export function DialogPrompts() {
 
     // Handler: Save edited prompt (delegates to doSave)
     const handleSave = () => {
-        console.log("[DEBUG] handleSave button clicked")
+        toast.show({ message: "[0] handleSave triggered", variant: "info" })
         doSave()
     }
 
@@ -369,7 +379,7 @@ export function DialogPrompts() {
                                 focusedTextColor={theme.text}
                                 cursorColor={theme.text}
                                 onSubmit={handleSave}
-                                keyBindings={[{ name: "ctrl+s", action: "submit" }]}
+                                keyBindings={[{ name: "ctrl+shift+s", action: "submit" }]}
                             />
                         </Show>
                     </box>
@@ -378,7 +388,7 @@ export function DialogPrompts() {
 
             {/* Footer hint */}
             <text fg={theme.textMuted}>
-                Click entry to expand • {editMode() ? "Editing: Ctrl+S to save, Esc to cancel" : "Click Edit to modify"}
+                Click entry to expand • {editMode() ? "Editing: Ctrl+Shift+S to save, Esc to cancel" : "Click Edit to modify"}
             </text>
         </box>
     )

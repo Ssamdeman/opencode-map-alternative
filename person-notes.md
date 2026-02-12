@@ -496,3 +496,162 @@ This feature needs:
 ✅ UI components scoped (existing Dialog)
 ⚠️ Need to verify prompt-to-file mapping
 ⚠️ Need to locate session cleanup hooks
+
+
+
+
+
+# OpenCode — Prompt Assembly Pipeline
+
+## Overview
+
+Every LLM call in OpenCode receives a single system message assembled from three layers. Custom session prompts replace only Layer 1; Layers 2 and 3 are always appended.
+
+---
+
+## Assembly Order
+
+```
+┌─────────────────────────────────────────────────┐
+│  LAYER 1: Base System Prompt                    │
+│  (replaceable via /prompts editor)              │
+│                                                 │
+│  Priority:                                      │
+│    1. Agent-specific prompt  (highest)          │
+│    2. Session cache override                    │
+│    3. Default .txt file      (fallback)         │
+└──────────────────┬──────────────────────────────┘
+                   │ + "\n"
+┌──────────────────▼──────────────────────────────┐
+│  LAYER 2: Environment Block                     │
+│  (always appended, not editable)                │
+│                                                 │
+│  • "You are powered by model {modelID}..."      │
+│  • <env> working dir, platform, date, git </env>│
+│  • <files> project file tree </files>           │
+└──────────────────┬──────────────────────────────┘
+                   │ + "\n"
+┌──────────────────▼──────────────────────────────┐
+│  LAYER 3: Project Instructions                  │
+│  (always appended, not editable)                │
+│                                                 │
+│  • AGENTS.md content                            │
+│  • CLAUDE.md content (if present)               │
+│  • Any other instruction files found            │
+│  • Each prefixed: "Instructions from: {path}"   │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Layer 1: Base Prompt Selection
+
+### Default Routing (system.ts → SystemPrompt.provider())
+
+| Model ID contains | Prompt file loaded     | Cache key        |
+|-------------------|------------------------|------------------|
+| `gpt-5`           | `codex_header.txt`     | `system:codex`   |
+| `gpt-` / `o1` / `o3` | `beast.txt`        | `system:beast`   |
+| `gemini-`         | `gemini.txt`           | `system:gemini`  |
+| `claude`          | `anthropic.txt`        | `system:anthropic`|
+| everything else   | `qwen.txt`             | `system:qwen`    |
+
+### Override Priority (llm.ts lines 71–103)
+
+```
+if agent has own prompt       → use agent prompt
+else if SessionPromptCache    → use cached override
+else if codex model           → use [] (empty)
+else                          → use SystemPrompt.provider()
+```
+
+### Session Override Flow
+
+```
+TUI /prompts dialog
+  → user edits prompt
+  → POST /session/:id/prompt  (HTTP to server)
+  → server writes to SessionPromptCache (same instance as llm.ts)
+  → llm.ts reads cache on next LLM call
+  → customPrompt: true logged in transparent output
+```
+
+---
+
+## Layer 2: Environment Block
+
+Assembled in `prompt.ts`. Always appended after Layer 1.
+
+```
+You are powered by the model named {model.name}. The exact model ID is {provider}/{modelID}
+<env>
+  Working directory: {cwd}
+  Is directory a git repo: {yes/no}
+  Platform: {win32/darwin/linux}
+  Today's date: {date}
+</env>
+<files>
+  {project file tree}
+</files>
+```
+
+---
+
+## Layer 3: Project Instructions
+
+Assembled in `prompt.ts`. Always appended after Layer 2.
+
+Scans for instruction files (AGENTS.md, CLAUDE.md, etc.) and appends each:
+
+```
+Instructions from: {absolute_file_path}
+{file content}
+```
+
+---
+
+## Key Files
+
+| File | Role |
+|------|------|
+| `session/system.ts` | Routes model ID → default .txt file |
+| `session/prompt.ts` | Assembles all three layers into final system message |
+| `session/prompt-cache.ts` | In-memory cache for session overrides (4hr TTL) |
+| `session/prompt-info.ts` | Aggregates prompt sources for /prompts display |
+| `session/llm.ts` | Checks cache override before default; sends to LLM |
+| `server/server.ts` | Hosts POST endpoint for TUI → server cache sync |
+| `cli/cmd/tui/component/dialog-prompts.tsx` | TUI editor UI |
+
+---
+
+## Session Scoping Rules
+
+- Custom prompts are **session-scoped** — new sessions always use defaults
+- Cache entries expire after **4 hours** TTL
+- Cache is cleared when session is deleted (`Session.remove()`)
+- TUI and LLM server share cache via HTTP POST (thread isolation bridge)
+- `customPrompt: true/false` flag in transparent log confirms which path was used
+
+---
+
+## What Custom Prompts Replace vs. Keep
+
+| Component | Replaced by custom? |
+|-----------|---------------------|
+| Base system prompt (.txt content) | ✅ Yes |
+| Model name / ID line | ❌ Always appended |
+| `<env>` block | ❌ Always appended |
+| `<files>` tree | ❌ Always appended |
+| AGENTS.md instructions | ❌ Always appended |
+
+---
+
+## Future Build Hooks
+
+Potential extension points identified:
+
+1. **Per-layer editing** — Allow editing Layer 2/3 independently (env, instructions)
+2. **Prompt templates** — Save/load named prompt presets per session
+3. **Agent-specific overrides** — Edit agent prompts (title, summary, compaction) per session
+4. **Prompt versioning** — Track prompt edit history within a session
+5. **Persistent overrides** — Option to save custom prompts beyond 4hr TTL / across sessions

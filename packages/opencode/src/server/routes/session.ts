@@ -324,13 +324,11 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const { sessionID } = c.req.valid("param")
         const { key, content } = c.req.valid("json")
-        console.log(`[SERVER] saving prompt override for ${sessionID}:`, key)
         // @ts-ignore
         SessionPromptCache.set(sessionID, key, content)
         await Session.update(
           sessionID,
           (draft) => {
-            console.log(`[SERVER] updating session json for ${sessionID}`)
             draft.promptOverride = { key, content }
           },
           { touch: false },

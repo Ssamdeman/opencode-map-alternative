@@ -49,6 +49,27 @@ export function DialogPrompts() {
         return sid
     }
 
+    // Fetch session data to hydrate cache if needed (client-side hydration)
+    createEffect(async () => {
+        const sid = sessionID()
+        if (!sid) return
+
+        try {
+            const url = new URL(`session/${sid}`, sdk.url).toString()
+            const fetchFn = sdk.fetch || fetch
+            const res = await fetchFn(url)
+            if (res.ok) {
+                const session = await res.json()
+                if (session.promptOverride) {
+                    SessionPromptCache.set(sid, session.promptOverride.key, session.promptOverride.content)
+                    setRefreshTrigger(x => x + 1)
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch session info for prompts:", e)
+        }
+    })
+
     // State for selected entry (to expand details)
     const [selectedIdx, setSelectedIdx] = createSignal<number | null>(null)
     // State for edit mode

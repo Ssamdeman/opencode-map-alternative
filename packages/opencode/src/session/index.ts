@@ -264,11 +264,8 @@ export namespace Session {
   export const get = fn(Identifier.schema("session"), async (id) => {
     const read = await Storage.read<Info>(["session", Instance.project.id, id])
     if (read.promptOverride) {
-      console.log(`[SESSION] hydrating prompt override for ${id}:`, read.promptOverride.key)
       // @ts-ignore
       SessionPromptCache.set(id, read.promptOverride.key, read.promptOverride.content)
-    } else {
-      console.log(`[SESSION] no prompt override found for ${id}`)
     }
     return read as Info
   })

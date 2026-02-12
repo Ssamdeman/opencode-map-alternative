@@ -1,9 +1,11 @@
 {
-  "version": "0.0.8--BUGFIX",
+  "version": "0.0.8-BUGFIX",
   "date": "2026-02-12",
-  "focus": "Session Prompt Editor",
+  "focus": "Session Prompt Editor Persistence",
   "changes": [
-    "Fixed save functionality (Ctrl+S and button click) not working. not working on stored prompts"
+    "Fixed critical issue where custom system prompts were not persisting across session restarts.",
+    "Implemented session-level storage for prompt overrides in JSON persistence layer.",
+    "Fixed TUI prompt editor to correctly hydrate changes from saved session data."
   ]
 }
 

@@ -1,4 +1,13 @@
 {
+  "version": "0.0.8--BUGFIX",
+  "date": "2026-02-12",
+  "focus": "Session Prompt Editor",
+  "changes": [
+    "Fixed save functionality (Ctrl+S and button click) not working. not working on stored prompts"
+  ]
+}
+
+{
   "version": "0.0.8",
   "date": "2026-02-09",
   "focus": "Session Prompt Editor",

@@ -5,6 +5,7 @@ import { useSync } from "@tui/context/sync"
 import { useLocal } from "@tui/context/local"
 import { For, Show, createMemo, createSignal, createEffect, onMount } from "solid-js"
 import { SessionPromptCache, type PromptKey } from "@/session/prompt-cache"
+import { useSDK } from "@tui/context/sdk"
 import { useToast } from "../ui/toast"
 
 // Import prompts statically like system.ts does
@@ -38,12 +39,13 @@ export function DialogPrompts() {
     const sync = useSync()
     const local = useLocal()
     const toast = useToast()
+    const sdk = useSDK()
 
     // Get current session ID from route
     const sessionID = () => {
         const type = route.data.type
         const sid = type === "session" ? route.data.sessionID : undefined
-        toast.show({ message: `[SID] route.type=${type} sid=${sid?.slice(0, 8) || "NONE"}`, variant: sid ? "info" : "error" })
+        // toast.show({ message: `[SID] route.type=${type} sid=${sid?.slice(0, 8) || "NONE"}`, variant: sid ? "info" : "error" })
         return sid
     }
 
@@ -58,30 +60,56 @@ export function DialogPrompts() {
     let textareaRef: TextareaRenderable | undefined
 
     // Actual save logic
-    const doSave = () => {
-        toast.show({ message: "[1] doSave entered", variant: "info" })
+    const doSave = async () => {
         const sid = sessionID()
         const idx = selectedIdx()
-        if (!sid || idx === null || !textareaRef) {
-            toast.show({ message: `[2] FAIL: missing sid=${sid} idx=${idx} ref=${!!textareaRef}`, variant: "error" })
+        const entry = idx !== null ? entries()[idx] : null
+
+        // toast.show({ message: "[1] doSave entered", variant: "info" })
+
+        if (!sid || idx === null || !textareaRef || !entry) {
+            toast.show({ message: `[2] FAIL: sid=${sid} idx=${idx} ref=${!!textareaRef}`, variant: "error" })
             return
         }
         if (!editMode()) {
-            toast.show({ message: "[3] FAIL: editMode false", variant: "error" })
+            toast.show({ message: "[3] FAIL: editMode is false", variant: "error" })
             return
         }
 
         const newContent = textareaRef.plainText?.trim()
-        toast.show({ message: `[4] plainText: ${newContent?.slice(0, 20) || "EMPTY"}`, variant: "info" })
+        // toast.show({ message: `[4] content: ${newContent?.slice(0, 20) || "EMPTY"}`, variant: "info" })
         if (!newContent) {
-            toast.show({ message: "[5] FAIL: content empty", variant: "error" })
+            toast.show({ message: "[5] FAIL: empty content", variant: "error" })
             return
         }
 
-        const entry = entries()[idx]
-        toast.show({ message: `[6] writing cache key=${entry.cacheKey}`, variant: "info" })
+        // toast.show({ message: `[6] writing key=${entry.cacheKey}`, variant: "info" })
+
+        // 1. Update local cache (optimistic UI)
         SessionPromptCache.set(sid, entry.cacheKey, newContent)
-        toast.show({ message: "[7] done", variant: "success" })
+
+        // 2. Push to server (for LLM process)
+        try {
+            const url = new URL(`session/${sid}/prompt`, sdk.url).toString()
+            const fetchFn = sdk.fetch || fetch
+            const res = await fetchFn(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key: entry.cacheKey, content: newContent })
+            })
+
+            const text = await res.text()
+            if (!res.ok) {
+                toast.show({ message: `[POST FAIL] ${res.status}: ${text.slice(0, 50)}`, variant: "error" })
+                throw new Error(`Server returned ${res.status}`)
+            }
+
+            toast.show({ message: `[POST OK] ${res.status} len=${text.length}`, variant: "success" })
+        } catch (err) {
+            toast.show({ message: `[FETCH ERR] ${err}`, variant: "error" })
+            console.error("Failed to sync prompt to server:", err)
+        }
+
         setEditMode(false)
         setRefreshTrigger(r => r + 1)
     }

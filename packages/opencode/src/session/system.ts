@@ -15,13 +15,29 @@ export namespace SystemPrompt {
     return PROMPT_CODEX.trim()
   }
 
-  export function provider(model: Provider.Model) {
-    if (model.api.id.includes("gpt-5")) return [PROMPT_CODEX]
+  export function id(model: Provider.Model) {
+    if (model.api.id.includes("gpt-5")) return "codex"
     if (model.api.id.includes("gpt-") || model.api.id.includes("o1") || model.api.id.includes("o3"))
-      return [PROMPT_BEAST]
-    if (model.api.id.includes("gemini-")) return [PROMPT_GEMINI]
-    if (model.api.id.includes("claude")) return [PROMPT_ANTHROPIC]
-    return [PROMPT_ANTHROPIC_WITHOUT_TODO]
+      return "beast"
+    if (model.api.id.includes("gemini-")) return "gemini"
+    if (model.api.id.includes("claude")) return "anthropic"
+    return "qwen"
+  }
+
+  export function provider(model: Provider.Model) {
+    const key = id(model)
+    switch (key) {
+      case "codex":
+        return [PROMPT_CODEX]
+      case "beast":
+        return [PROMPT_BEAST]
+      case "gemini":
+        return [PROMPT_GEMINI]
+      case "anthropic":
+        return [PROMPT_ANTHROPIC]
+      default:
+        return [PROMPT_ANTHROPIC_WITHOUT_TODO]
+    }
   }
 
   export async function environment(model: Provider.Model) {
@@ -37,13 +53,12 @@ export namespace SystemPrompt {
         `  Today's date: ${new Date().toDateString()}`,
         `</env>`,
         `<files>`,
-        `  ${
-          project.vcs === "git" && false
-            ? await Ripgrep.tree({
-                cwd: Instance.directory,
-                limit: 200,
-              })
-            : ""
+        `  ${project.vcs === "git" && false
+          ? await Ripgrep.tree({
+            cwd: Instance.directory,
+            limit: 200,
+          })
+          : ""
         }`,
         `</files>`,
       ].join("\n"),

@@ -16,6 +16,7 @@ import { Log } from "../../util/log"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { SessionPromptCache } from "../../session/prompt-cache"
 
 const log = Log.create({ service: "server" })
 
@@ -288,6 +289,44 @@ export const SessionRoutes = lazy(() =>
         )
 
         return c.json(updatedSession)
+      },
+    )
+    .post(
+      "/:sessionID/prompt",
+      describeRoute({
+        summary: "Set session prompt override",
+        description: "Set a custom system prompt override for the current session.",
+        operationId: "session.set_prompt",
+        responses: {
+          200: {
+            description: "Successfully set prompt override",
+            content: {
+              "application/json": {
+                schema: resolver(z.boolean()),
+              },
+            },
+          },
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string(),
+        }),
+      ),
+      validator(
+        "json",
+        z.object({
+          key: z.string(),
+          content: z.string(),
+        }),
+      ),
+      async (c) => {
+        const { sessionID } = c.req.valid("param")
+        const { key, content } = c.req.valid("json")
+        // @ts-ignore
+        SessionPromptCache.set(sessionID, key, content)
+        return c.json(true)
       },
     )
     .post(

@@ -22,8 +22,8 @@ export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
       process.env["OPENCODE_ROUTE"]
         ? JSON.parse(process.env["OPENCODE_ROUTE"])
         : {
-            type: "home",
-          },
+          type: "home",
+        },
     )
 
     return {

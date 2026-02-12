@@ -68,19 +68,14 @@ export namespace LLM {
     ])
     const isCodex = provider.id === "openai" && auth?.type === "oauth"
 
-    // Determine system prompt key for cache lookup
-    const getSystemPromptKey = (model: Provider.Model): PromptKey => {
-      if (model.api.id.includes("gpt-5")) return "system:codex"
-      if (model.api.id.includes("gpt-") || model.api.id.includes("o1") || model.api.id.includes("o3")) return "system:beast"
-      if (model.api.id.includes("gemini-")) return "system:gemini"
-      if (model.api.id.includes("claude")) return "system:anthropic"
-      return "system:qwen"
-    }
-
     // Check for cached system prompt override
-    const systemPromptKey = getSystemPromptKey(input.model)
+    const key = SystemPrompt.id(input.model)
+    const systemPromptKey = `system:${key}` as PromptKey
     const cachedSystemPrompt = SessionPromptCache.get(input.sessionID, systemPromptKey)
     const hasPromptOverride = cachedSystemPrompt !== undefined
+
+    // DIAGNOSTIC: trace cache lookup
+
 
     const system = []
     system.push(

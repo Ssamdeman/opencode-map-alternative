@@ -100,13 +100,13 @@ export function DialogPrompts() {
 
             const text = await res.text()
             if (!res.ok) {
-                toast.show({ message: `[POST FAIL] ${res.status}: ${text.slice(0, 50)}`, variant: "error" })
+                toast.show({ message: `Save failed: ${res.status}`, variant: "error" })
                 throw new Error(`Server returned ${res.status}`)
             }
 
-            toast.show({ message: `[POST OK] ${res.status} len=${text.length}`, variant: "success" })
+            toast.show({ message: "Prompt saved", variant: "success" })
         } catch (err) {
-            toast.show({ message: `[FETCH ERR] ${err}`, variant: "error" })
+            toast.show({ message: "Failed to save prompt", variant: "error" })
             console.error("Failed to sync prompt to server:", err)
         }
 

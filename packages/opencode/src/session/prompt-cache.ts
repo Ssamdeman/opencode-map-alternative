@@ -29,14 +29,14 @@ export type CacheEntry = {
 // In-memory storage: Map<sessionID, Map<PromptKey, CacheEntry>>
 const cache = new Map<string, Map<PromptKey, CacheEntry>>()
 const INSTANCE_ID = Math.random().toString(36).slice(2, 8)
-console.log(`[CACHE-DIAG] SessionPromptCache module initialized [ID:${INSTANCE_ID}]`)
+
 
 export namespace SessionPromptCache {
     /**
      * Set an override for a specific prompt in a session
      */
     export function set(sessionID: string, key: PromptKey, content: string): void {
-        console.log(`[CACHE-DIAG] [ID:${INSTANCE_ID}] set sessionID=${sessionID} key=${key} contentLen=${content.length}`)
+
         let sessionCache = cache.get(sessionID)
         if (!sessionCache) {
             sessionCache = new Map()
@@ -70,7 +70,7 @@ export namespace SessionPromptCache {
      * Get an override for a specific prompt (returns undefined if not set or expired)
      */
     export function get(sessionID: string, key: PromptKey): string | undefined {
-        // console.log(`[CACHE-DIAG] [ID:${INSTANCE_ID}] get sessionID=${sessionID} key=${key}`)
+
         const sessionCache = cache.get(sessionID)
         if (!sessionCache) return undefined
 

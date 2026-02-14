@@ -15,6 +15,7 @@ import { DialogMcp } from "@tui/component/dialog-mcp"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogTransparent } from "@tui/component/dialog-transparent"
 import { DialogPrompts } from "@tui/component/dialog-prompts"
+import { DialogEngagement } from "@tui/component/dialog-engagement"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
@@ -470,6 +471,18 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogPrompts />)
+      },
+      category: "System",
+    },
+    {
+      title: "Create Engagement",
+      value: "opencode.engagement",
+      slash: {
+        name: "engagement",
+        aliases: ["eng"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogEngagement />)
       },
       category: "System",
     },

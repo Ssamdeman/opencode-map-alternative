@@ -4,15 +4,20 @@ import { useDialog } from "../ui/dialog"
 import { useToast } from "../ui/toast"
 import { createSignal, createEffect, For, Show, createMemo } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
+import { useRoute } from "../context/route"
+import { useLocal } from "../context/local"
+import { Identifier } from "@/id/id"
 import { useSync } from "../context/sync"
 import { useSDK } from "../context/sdk"
 
-export function DialogEngagement(props: { sessionID: string }) {
+export function DialogEngagement(props: { sessionID?: string }) {
     const { theme } = useTheme()
     const dialog = useDialog()
     const toast = useToast()
     const sync = useSync()
     const sdk = useSDK()
+    const route = useRoute()
+    const local = useLocal()
 
     // Field definitions
     const fields = [
@@ -32,7 +37,7 @@ export function DialogEngagement(props: { sessionID: string }) {
     const textareaRefs: (TextareaRenderable | undefined)[] = []
 
     // Get session data
-    const session = createMemo(() => sync.session.get(props.sessionID))
+    const session = createMemo(() => props.sessionID ? sync.session.get(props.sessionID) : undefined)
     const engagement = createMemo(() => (session() as any)?.engagement || {})
 
     // Focus management
@@ -61,7 +66,15 @@ export function DialogEngagement(props: { sessionID: string }) {
         })
 
         try {
-            const url = new URL(`session/${props.sessionID}/engagement`, sdk.url).toString()
+            // 1. Create session if needed
+            let sessionID = props.sessionID
+            if (!sessionID) {
+                const session = await sdk.client.session.create({})
+                sessionID = session.data!.id
+            }
+
+            // 2. Save engagement data
+            const url = new URL(`session/${sessionID}/engagement`, sdk.url).toString()
             const fetchFn = sdk.fetch || fetch
             const res = await fetchFn(url, {
                 method: "POST",
@@ -72,6 +85,40 @@ export function DialogEngagement(props: { sessionID: string }) {
             if (!res.ok) {
                 throw new Error(`Server returned ${res.status}`)
             }
+
+            // 3. Construct message
+            const message = `Here is my engagement briefing:
+
+Name: ${collectedValues.name || "N/A"}
+Scope: ${collectedValues.scope || "N/A"}
+In-Scope Targets: ${collectedValues.targets || "N/A"}
+Exclusions: ${collectedValues.exclusions || "N/A"}
+Rules of Engagement: ${collectedValues.roe || "N/A"}
+
+Acknowledge this engagement context.`
+
+            // 4. Send message to LLM
+            const selectedModel = local.model.current()
+            if (selectedModel) {
+                await sdk.client.session.prompt({
+                    sessionID,
+                    ...selectedModel,
+                    messageID: Identifier.ascending("message"),
+                    agent: local.agent.current().name,
+                    model: selectedModel,
+                    variant: local.model.variant.current(),
+                    parts: [{
+                        id: Identifier.ascending("part"),
+                        type: "text",
+                        text: message
+                    }]
+                })
+            } else {
+                toast.show({ variant: "warning", message: "Engagement saved, but connect a provider to send briefing." })
+            }
+
+            // 5. Navigate to session
+            route.navigate({ type: "session", sessionID })
 
             toast.show({ message: "Engagement saved", variant: "success" })
             dialog.clear()
@@ -115,7 +162,7 @@ export function DialogEngagement(props: { sessionID: string }) {
             {/* Fields */}
             <scrollbox maxHeight={20}>
                 <box flexDirection="column" gap={1}>
-                    <Show when={session()} fallback={<text fg={theme.textMuted}>Loading session...</text>}>
+                    <Show when={props.sessionID ? session() : true} fallback={<text fg={theme.textMuted}>Loading session...</text>}>
                         <For each={fields}>
                             {(field, idx) => (
                                 <box flexDirection="column">

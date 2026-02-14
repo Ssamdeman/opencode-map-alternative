@@ -483,14 +483,8 @@ function App() {
       },
       onSelect: (dialog) => {
         const data = route.data
-        if (data.type === "session") {
-          dialog.replace(() => <DialogEngagement sessionID={data.sessionID} />)
-        } else {
-          toast.show({
-            variant: "error",
-            message: "Engagement details available only in active session",
-          })
-        }
+        const sessionID = data.type === "session" ? data.sessionID : undefined
+        dialog.replace(() => <DialogEngagement sessionID={sessionID} />)
       },
       category: "System",
     },

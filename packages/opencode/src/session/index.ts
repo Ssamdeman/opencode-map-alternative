@@ -94,6 +94,15 @@ export namespace Session {
           content: z.string(),
         })
         .optional(),
+      engagement: z
+        .object({
+          name: z.string().optional(),
+          scope: z.string().optional(),
+          targets: z.string().optional(),
+          exclusions: z.string().optional(),
+          roe: z.string().optional(),
+        })
+        .optional(),
     })
     .meta({
       ref: "Session",

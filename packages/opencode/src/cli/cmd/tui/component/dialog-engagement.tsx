@@ -2,13 +2,17 @@ import { TextAttributes, type TextareaRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog } from "../ui/dialog"
 import { useToast } from "../ui/toast"
-import { createSignal, createEffect, For, Show } from "solid-js"
+import { createSignal, createEffect, For, Show, createMemo } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
+import { useSync } from "../context/sync"
+import { useSDK } from "../context/sdk"
 
-export function DialogEngagement() {
+export function DialogEngagement(props: { sessionID: string }) {
     const { theme } = useTheme()
     const dialog = useDialog()
     const toast = useToast()
+    const sync = useSync()
+    const sdk = useSDK()
 
     // Field definitions
     const fields = [
@@ -16,14 +20,20 @@ export function DialogEngagement() {
         { key: "scope", label: "Scope", placeholder: "Define the boundaries..." },
         { key: "targets", label: "Targets", placeholder: "List IP ranges, domains, or assets..." },
         { key: "exclusions", label: "Exclusions", placeholder: "List out-of-scope assets..." },
-        { key: "roe", label: "Rules of Engagement", placeholder: "Specific rules, constraints, orauthorized actions..." },
+        { key: "roe", label: "Rules of Engagement", placeholder: "Specific rules, constraints, or authorized actions..." },
     ] as const
 
     // State for currently focused field index
     const [focusIdx, setFocusIdx] = createSignal(0)
+    // Loading state for save operation
+    const [isSaving, setIsSaving] = createSignal(false)
 
     // Refs for textareas to manage focus
     const textareaRefs: (TextareaRenderable | undefined)[] = []
+
+    // Get session data
+    const session = createMemo(() => sync.session.get(props.sessionID))
+    const engagement = createMemo(() => (session() as any)?.engagement || {})
 
     // Focus management
     createEffect(() => {
@@ -37,7 +47,10 @@ export function DialogEngagement() {
         }, 10)
     })
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (isSaving()) return
+        setIsSaving(true)
+
         // Collect values from refs
         const collectedValues: Record<string, string> = {}
         fields.forEach((field, idx) => {
@@ -47,9 +60,27 @@ export function DialogEngagement() {
             }
         })
 
-        // Phase 1: Just show a toast
-        toast.show({ message: "Engagement saved", variant: "success" })
-        dialog.clear()
+        try {
+            const url = new URL(`session/${props.sessionID}/engagement`, sdk.url).toString()
+            const fetchFn = sdk.fetch || fetch
+            const res = await fetchFn(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(collectedValues)
+            })
+
+            if (!res.ok) {
+                throw new Error(`Server returned ${res.status}`)
+            }
+
+            toast.show({ message: "Engagement saved", variant: "success" })
+            dialog.clear()
+        } catch (error) {
+            toast.show({ message: "Failed to save engagement", variant: "error" })
+            console.error(error)
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     const handleCancel = () => {
@@ -84,33 +115,36 @@ export function DialogEngagement() {
             {/* Fields */}
             <scrollbox maxHeight={20}>
                 <box flexDirection="column" gap={1}>
-                    <For each={fields}>
-                        {(field, idx) => (
-                            <box flexDirection="column">
-                                <text fg={focusIdx() === idx() ? theme.primary : theme.textMuted}>
-                                    {field.label}
-                                </text>
-                                <textarea
-                                    height={3}
-                                    placeholder={field.placeholder}
-                                    ref={(val: TextareaRenderable) => { textareaRefs[idx()] = val }}
-                                    textColor={theme.text}
-                                    focusedTextColor={theme.text}
-                                    cursorColor={theme.text}
-                                    onSubmit={() => {
-                                        // Optional: enter moves to next field if we decide to implement that.
-                                    }}
-                                />
-                            </box>
-                        )}
-                    </For>
+                    <Show when={session()} fallback={<text fg={theme.textMuted}>Loading session...</text>}>
+                        <For each={fields}>
+                            {(field, idx) => (
+                                <box flexDirection="column">
+                                    <text fg={focusIdx() === idx() ? theme.primary : theme.textMuted}>
+                                        {field.label}
+                                    </text>
+                                    <textarea
+                                        height={3}
+                                        placeholder={field.placeholder}
+                                        initialValue={engagement()[field.key] || ""}
+                                        ref={(val: TextareaRenderable) => { textareaRefs[idx()] = val }}
+                                        textColor={theme.text}
+                                        focusedTextColor={theme.text}
+                                        cursorColor={theme.text}
+                                        onSubmit={() => {
+                                            // Optional: enter moves to next field if we decide to implement that.
+                                        }}
+                                    />
+                                </box>
+                            )}
+                        </For>
+                    </Show>
                 </box>
             </scrollbox>
 
             {/* Footer / Actions */}
             <box flexDirection="row" gap={2} paddingTop={1}>
                 <text fg={theme.success} onMouseUp={handleSave}>
-                    [Save] (Ctrl+S)
+                    {isSaving() ? "[Saving...]" : "[Save] (Ctrl+S)"}
                 </text>
                 <text fg={theme.textMuted} onMouseUp={handleCancel}>
                     [Cancel] (Esc)

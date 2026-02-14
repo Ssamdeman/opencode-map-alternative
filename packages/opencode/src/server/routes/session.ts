@@ -337,6 +337,52 @@ export const SessionRoutes = lazy(() =>
       },
     )
     .post(
+      "/:sessionID/engagement",
+      describeRoute({
+        summary: "Set engagement details",
+        description: "Set the engagement details for the session.",
+        operationId: "session.engagement",
+        responses: {
+          200: {
+            description: "Successfully set engagement details",
+            content: {
+              "application/json": {
+                schema: resolver(z.boolean()),
+              },
+            },
+          },
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string(),
+        }),
+      ),
+      validator(
+        "json",
+        z.object({
+          name: z.string().optional(),
+          scope: z.string().optional(),
+          targets: z.string().optional(),
+          exclusions: z.string().optional(),
+          roe: z.string().optional(),
+        }),
+      ),
+      async (c) => {
+        const { sessionID } = c.req.valid("param")
+        const engagement = c.req.valid("json")
+        await Session.update(
+          sessionID,
+          (draft) => {
+            draft.engagement = engagement
+          },
+          { touch: true },
+        )
+        return c.json(true)
+      },
+    )
+    .post(
       "/:sessionID/init",
       describeRoute({
         summary: "Initialize session",

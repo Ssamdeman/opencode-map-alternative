@@ -127,10 +127,11 @@ export const SessionRoutes = lazy(() =>
             roe: z.string().optional(),
           }),
           model: z.object({ providerID: z.string(), modelID: z.string() }).optional(),
+          prompt: z.string().optional(),
         }),
       ),
       async (c) => {
-        const { current, model } = c.req.valid("json")
+        const { current, model, prompt: customPrompt } = c.req.valid("json")
 
         // 1. Resolve Model
         let targetModel: Provider.Model | undefined
@@ -152,7 +153,7 @@ export const SessionRoutes = lazy(() =>
         }
 
         // 2. Construct Prompt
-        const prompt = `You are an expert security engagement planner.
+        const prompt = customPrompt || `You are an expert security engagement planner.
 Based on the following partial input, generate a comprehensive engagement configuration.
 Fill in missing details logically for a professional pentest/security assessment.
 
@@ -489,6 +490,12 @@ Return ONLY a valid JSON object with the following keys. Do not include markdown
           targets: z.string().optional(),
           exclusions: z.string().optional(),
           roe: z.string().optional(),
+          aiSettings: z
+            .object({
+              modelID: z.string().optional(),
+              prompt: z.string().optional(),
+            })
+            .optional(),
         }),
       ),
       async (c) => {

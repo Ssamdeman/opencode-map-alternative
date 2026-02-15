@@ -9,8 +9,19 @@ import { useLocal } from "../context/local"
 import { Identifier } from "@/id/id"
 import { useSync } from "../context/sync"
 import { useSDK } from "../context/sdk"
+import { DialogModel } from "./dialog-model"
 
-export function DialogEngagement(props: { sessionID?: string }) {
+export type DialogEngagementState = {
+    draftValues?: Record<string, string>
+    isSettingsOpen?: boolean
+    aiSettings?: {
+        providerID?: string
+        modelID?: string
+        prompt?: string
+    }
+}
+
+export function DialogEngagement(props: { sessionID?: string; initialState?: DialogEngagementState }) {
     const { theme } = useTheme()
     const dialog = useDialog()
     const toast = useToast()
@@ -35,10 +46,15 @@ export function DialogEngagement(props: { sessionID?: string }) {
     // AI Auto-Fill state
     const [view, setView] = createSignal<"form" | "confirm">("form")
     const [isAiLoading, setIsAiLoading] = createSignal(false)
-    const [draftValues, setDraftValues] = createSignal<Record<string, string>>({})
+
+    // Form and Settings State
+    const [draftValues, setDraftValues] = createSignal<Record<string, string>>(props.initialState?.draftValues || {})
+    const [isSettingsOpen, setIsSettingsOpen] = createSignal(props.initialState?.isSettingsOpen || false)
+    const [aiSettings, setAiSettings] = createSignal(props.initialState?.aiSettings || {})
 
     // Refs for textareas to manage focus
     const textareaRefs: (TextareaRenderable | undefined)[] = []
+    let promptRef: TextareaRenderable | undefined
 
     // Get session data
     const session = createMemo(() => props.sessionID ? sync.session.get(props.sessionID) : undefined)
@@ -68,6 +84,22 @@ export function DialogEngagement(props: { sessionID?: string }) {
         return collected
     }
 
+    const captureAllState = () => {
+        const draft = captureValues()
+        const prompt = promptRef?.plainText.trim()
+
+        let currentSettings = aiSettings()
+        if (prompt !== undefined) {
+            currentSettings = { ...currentSettings, prompt }
+        }
+
+        return {
+            draftValues: draft,
+            aiSettings: currentSettings,
+            isSettingsOpen: isSettingsOpen()
+        }
+    }
+
     const handleAutoFillRequest = () => {
         const current = captureValues()
         setDraftValues(current)
@@ -78,8 +110,13 @@ export function DialogEngagement(props: { sessionID?: string }) {
         setIsAiLoading(true)
         try {
             // 1. Prepare payload
-            const current = draftValues()
-            const currentModel = local.model.current()
+            const state = captureAllState()
+            setDraftValues(state.draftValues)
+            const settings = state.aiSettings
+
+            const currentModel = (settings.modelID && settings.providerID)
+                ? { providerID: settings.providerID, modelID: settings.modelID }
+                : local.model.current()
 
             // 2. Call Server with mandatory delay (3s min)
             const url = new URL('session/engagement/generate', sdk.url).toString()
@@ -88,11 +125,12 @@ export function DialogEngagement(props: { sessionID?: string }) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    current,
+                    current: state.draftValues,
                     model: currentModel ? {
                         providerID: currentModel.providerID,
                         modelID: currentModel.modelID
-                    } : undefined
+                    } : undefined,
+                    prompt: settings.prompt
                 })
             })
 
@@ -129,14 +167,10 @@ export function DialogEngagement(props: { sessionID?: string }) {
         if (isSaving()) return
         setIsSaving(true)
 
-        // Collect values from refs
-        const collectedValues: Record<string, string> = {}
-        fields.forEach((field, idx) => {
-            const ref = textareaRefs[idx]
-            if (ref) {
-                collectedValues[field.key] = ref.plainText.trim()
-            }
-        })
+        // Collect values from state
+        const state = captureAllState()
+        const collectedValues = state.draftValues
+        const settings = state.aiSettings
 
         try {
             // 1. Create session if needed
@@ -152,7 +186,10 @@ export function DialogEngagement(props: { sessionID?: string }) {
             const res = await fetchFn(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(collectedValues)
+                body: JSON.stringify({
+                    ...collectedValues,
+                    aiSettings: settings
+                })
             })
 
             if (!res.ok) {
@@ -171,7 +208,10 @@ Rules of Engagement: ${collectedValues.roe || "N/A"}
 Acknowledge this engagement context.`
 
             // 4. Send message to LLM
-            const selectedModel = local.model.current()
+            const selectedModel = (settings.modelID && settings.providerID)
+                ? { providerID: settings.providerID, modelID: settings.modelID }
+                : local.model.current()
+
             if (selectedModel) {
                 await sdk.client.session.prompt({
                     sessionID,
@@ -284,7 +324,73 @@ Acknowledge this engagement context.`
                         </Show>
                     </box>
                 </Show>
+
+                {/* AI Settings */}
+                <box flexDirection="column">
+                    <box paddingBottom={1} paddingTop={1}>
+                        <text
+                            fg={theme.textMuted}
+                            onMouseUp={() => setIsSettingsOpen(!isSettingsOpen())}
+                        >
+                            {isSettingsOpen() ? "▼ Hide AI Settings" : "▶ Show AI Settings"}
+                        </text>
+                    </box>
+
+                    <Show when={isSettingsOpen()}>
+                        <box flexDirection="column" gap={1} paddingBottom={1} borderStyle="rounded" borderColor={theme.border} padding={1}>
+                            <box flexDirection="row" gap={2} alignItems="center">
+                                <text fg={theme.textMuted}>Model:</text>
+                                <text fg={theme.primary}>
+                                    {aiSettings().modelID
+                                        ? `${aiSettings().providerID}/${aiSettings().modelID}`
+                                        : `${local.model.current()?.providerID}/${local.model.current()?.modelID} (Default)`
+                                    }
+                                </text>
+                                <text
+                                    fg={theme.textMuted}
+                                    onMouseUp={() => {
+                                        const currentState = captureAllState()
+
+                                        dialog.replace(() => <DialogModel onSelect={(m) => {
+                                            dialog.replace(() => <DialogEngagement
+                                                sessionID={props.sessionID}
+                                                initialState={{
+                                                    ...currentState,
+                                                    aiSettings: {
+                                                        ...currentState.aiSettings,
+                                                        ...m
+                                                    }
+                                                }}
+                                            />)
+                                        }} />)
+                                    }}
+                                >
+                                    [Change]
+                                </text>
+                                <Show when={aiSettings().modelID}>
+                                    <text
+                                        fg={theme.textMuted}
+                                        onMouseUp={() => setAiSettings(prev => ({ ...prev, modelID: undefined, providerID: undefined }))}
+                                    >
+                                        [Reset]
+                                    </text>
+                                </Show>
+                            </box>
+                            <box flexDirection="column">
+                                <text fg={theme.textMuted}>Custom Prompt:</text>
+                                <textarea
+                                    height={5}
+                                    placeholder="Enter custom prompt instructions for auto-fill..."
+                                    initialValue={aiSettings().prompt ?? (session() as any)?.engagement?.aiSettings?.prompt ?? ""}
+                                    ref={(val: TextareaRenderable) => { promptRef = val }}
+                                    textColor={theme.text}
+                                />
+                            </box>
+                        </box>
+                    </Show>
+                </box>
             </scrollbox>
+
 
             {/* Footer / Actions */}
             <box flexDirection="row" gap={2} paddingTop={1} justifyContent="space-between">

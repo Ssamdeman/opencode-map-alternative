@@ -101,6 +101,12 @@ export namespace Session {
           targets: z.string().optional(),
           exclusions: z.string().optional(),
           roe: z.string().optional(),
+          aiSettings: z
+            .object({
+              modelID: z.string().optional(),
+              prompt: z.string().optional(),
+            })
+            .optional(),
         })
         .optional(),
     })

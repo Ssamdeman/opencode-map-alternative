@@ -1,4 +1,17 @@
 {
+  "version": "0.0.9",
+  "date": "2026-02-15",
+  "focus": "Engagement Prompt Refactor & Auto-Fill Stability",
+  "changes": [
+    "Refactored Engagement Prompt to be file-based (src/agent/prompt/engagement.txt) for easier editing and versioning.",
+    "Migrated AI Auto-Fill logic to Server-Side Execution to ensure consistent environment access.",
+    "Implemented strict JSON enforcement for Engagement Generation to prevent 500 errors with custom prompts.",
+    "Enhanced Engagement Dialog UI with dedicated 'Edit Prompt' dialog and 'Reset to Default' functionality.",
+    "Fixed persistence issues where custom engagement prompts were not saving correctly."
+  ]
+}
+
+{
   "version": "0.0.8-BUGFIX",
   "date": "2026-02-12",
   "focus": "Session Prompt Editor Persistence",
@@ -90,12 +103,6 @@
     "Updated Status dialog UI to include view switching hints."
   ]
 }
-
-
-
-
-
-
 
 
 

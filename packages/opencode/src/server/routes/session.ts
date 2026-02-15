@@ -138,79 +138,85 @@ export const SessionRoutes = lazy(() =>
         }),
       ),
       async (c) => {
-        const { current, model, prompt: customPrompt } = c.req.valid("json")
-
-        // 1. Resolve Model
-        let targetModel: Provider.Model | undefined
-        if (model) {
-          try {
-            targetModel = await Provider.getModel(model.providerID, model.modelID)
-          } catch (err) {
-            // Fallback if specific model fails
-            targetModel = await Provider.getSmallModel(model.providerID).catch(() => undefined)
-          }
-        }
-
-        if (!targetModel) {
-          targetModel = await Provider.getSmallModel("opencode").catch(() => undefined)
-        }
-
-        if (!targetModel) {
-          throw new Error("No available AI model found for generation.")
-        }
-
-        // 2. Construct Prompt
-        const engagementAgent = await Agent.get("engagement")
-        const defaultPrompt = engagementAgent?.prompt || ""
-        let promptTemplate = customPrompt || defaultPrompt
-
-        if (!promptTemplate) {
-          throw new Error("Engagement prompt not found")
-        }
-
-        const prompt = promptTemplate
-          .replace("{{name}}", current.name || "(Suggest a professional name)")
-          .replace("{{scope}}", current.scope || "(Suggest standard scope)")
-          .replace("{{targets}}", current.targets || "(Suggest standard targets)")
-          .replace("{{exclusions}}", current.exclusions || "(Suggest standard exclusions)")
-          .replace("{{roe}}", current.roe || "(Suggest standard rules)")
-
-        // 3. Call AI
-        // Using a general agent or constructing a temporary one
-        const agent = await Agent.get("summary")
-        if (!agent) throw new Error("Agent 'summary' not found") // Should technically exist
-
-        const userMsg: MessageV2.User = {
-          id: "temp-gen-req",
-          role: "user",
-          agent: agent.name,
-          model: { providerID: targetModel.providerID, modelID: targetModel.id },
-          sessionID: "temp-engagement-gen",
-          time: { created: Date.now() },
-        }
-
-        const result = await LLM.stream({
-          agent,
-          messages: [{ role: "user", content: prompt }],
-          model: targetModel,
-          sessionID: userMsg.sessionID,
-          user: userMsg,
-          system: [],
-          abort: new AbortController().signal,
-          tools: {}
-        })
-
-        // 4. Sanitize & Parse
-        const text = await result.text
-        const jsonMatch = text.match(/\{[\s\S]*\}/)
-        const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json\n?|\n?```/g, "").trim()
-
         try {
-          const json = JSON.parse(cleanText)
-          return c.json(json)
+          const { current, model, prompt: customPrompt } = c.req.valid("json")
+
+          // 1. Resolve Model
+          let targetModel: Provider.Model | undefined
+          if (model) {
+            try {
+              targetModel = await Provider.getModel(model.providerID, model.modelID)
+            } catch (err) {
+              // Fallback if specific model fails
+              targetModel = await Provider.getSmallModel(model.providerID).catch(() => undefined)
+            }
+          }
+
+          if (!targetModel) {
+            targetModel = await Provider.getSmallModel("opencode").catch(() => undefined)
+          }
+
+          if (!targetModel) {
+            throw new Error("No available AI model found for generation.")
+          }
+
+          // 2. Construct Prompt
+          const engagementAgent = await Agent.get("engagement")
+          const defaultPrompt = engagementAgent?.prompt || ""
+          let promptTemplate = customPrompt || defaultPrompt
+
+          if (!promptTemplate) {
+            throw new Error("Engagement prompt not found")
+          }
+
+          const prompt = promptTemplate
+            .replace("{{name}}", current.name || "(Suggest a professional name)")
+            .replace("{{scope}}", current.scope || "(Suggest standard scope)")
+            .replace("{{targets}}", current.targets || "(Suggest standard targets)")
+            .replace("{{exclusions}}", current.exclusions || "(Suggest standard exclusions)")
+            .replace("{{roe}}", current.roe || "(Suggest standard rules)")
+            + "\n\nIMPORTANT: Return ONLY a valid JSON object. No markdown, no explanations."
+
+          // 3. Call AI
+          // Using a general agent or constructing a temporary one
+          const agent = await Agent.get("summary")
+          if (!agent) throw new Error("Agent 'summary' not found") // Should technically exist
+
+          const userMsg: MessageV2.User = {
+            id: "temp-gen-req",
+            role: "user",
+            agent: agent.name,
+            model: { providerID: targetModel.providerID, modelID: targetModel.id },
+            sessionID: "temp-engagement-gen",
+            time: { created: Date.now() },
+          }
+
+          const result = await LLM.stream({
+            agent,
+            messages: [{ role: "user", content: prompt }],
+            model: targetModel,
+            sessionID: userMsg.sessionID,
+            user: userMsg,
+            system: [],
+            abort: new AbortController().signal,
+            tools: {}
+          })
+
+          // 4. Sanitize & Parse
+          const text = await result.text
+          const jsonMatch = text.match(/\{[\s\S]*\}/)
+          const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json\n?|\n?```/g, "").trim()
+
+          try {
+            const json = JSON.parse(cleanText)
+            return c.json(json)
+          } catch (e) {
+            log.error("Failed to parse AI response", { text, error: e })
+            throw new Error("Failed to parse AI response")
+          }
         } catch (e) {
-          log.error("Failed to parse AI response", { text, error: e })
-          throw new Error("Failed to parse AI response")
+          console.error("Engagement Generation Error:", e)
+          return c.json({ error: e instanceof Error ? e.message : String(e) }, 500)
         }
       },
     )

@@ -10,6 +10,7 @@ import { ProviderTransform } from "../provider/transform"
 
 import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
+import PROMPT_ENGAGEMENT from "./prompt/engagement.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
@@ -197,6 +198,21 @@ export namespace Agent {
         ),
         prompt: PROMPT_SUMMARY,
       },
+      engagement: {
+        name: "engagement",
+        mode: "primary",
+        options: {},
+        native: true,
+        hidden: true,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+          }),
+          user,
+        ),
+        prompt: PROMPT_ENGAGEMENT,
+      },
     }
 
     for (const [key, value] of Object.entries(cfg.agent ?? {})) {
@@ -321,7 +337,7 @@ export namespace Agent {
           instructions: SystemPrompt.instructions(),
           store: false,
         }),
-        onError: () => {},
+        onError: () => { },
       })
       for await (const part of result.fullStream) {
         if (part.type === "error") throw part.error

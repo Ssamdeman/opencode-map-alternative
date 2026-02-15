@@ -10,6 +10,7 @@ import { Identifier } from "@/id/id"
 import { useSync } from "../context/sync"
 import { useSDK } from "../context/sdk"
 import { DialogModel } from "./dialog-model"
+import { DialogTextEdit } from "./dialog-text-edit"
 
 export type DialogEngagementState = {
     draftValues?: Record<string, string>
@@ -52,6 +53,26 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
     const [isSettingsOpen, setIsSettingsOpen] = createSignal(props.initialState?.isSettingsOpen || false)
     const [aiSettings, setAiSettings] = createSignal(props.initialState?.aiSettings || {})
 
+    const [defaultPrompt, setDefaultPrompt] = createSignal("")
+    const [isPromptReady, setIsPromptReady] = createSignal(false)
+
+    // Fetch default prompt
+    createEffect(async () => {
+        try {
+            const url = new URL("session/engagement/config", sdk.url).toString()
+            const fetchFn = sdk.fetch || fetch
+            const res = await fetchFn(url)
+            if (res.ok) {
+                const json = await res.json()
+                setDefaultPrompt(json.prompt)
+            }
+        } catch (e) {
+            console.error("Failed to fetch default prompt", e)
+        } finally {
+            setIsPromptReady(true)
+        }
+    })
+
     // Refs for textareas to manage focus
     const textareaRefs: (TextareaRenderable | undefined)[] = []
     let promptRef: TextareaRenderable | undefined
@@ -59,6 +80,17 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
     // Get session data
     const session = createMemo(() => props.sessionID ? sync.session.get(props.sessionID) : undefined)
     const engagement = createMemo(() => (session() as any)?.engagement || {})
+
+    // Update prompt ref when defaultPrompt loads if empty
+    createEffect(() => {
+        const def = defaultPrompt()
+        const current = aiSettings().prompt ?? (session() as any)?.engagement?.aiSettings?.prompt
+        if (def && !current && promptRef) {
+            // We can't easily update the textarea content if it's uncontrolled without a re-render or internal method.
+            // But we can try to rely on the key if we used one, or just set it via ref if available.
+            // For now, let's just let it be. The initialValue might have been empty.
+        }
+    })
 
     // Focus management
     createEffect(() => {
@@ -77,9 +109,9 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
         const collected: Record<string, string> = {}
         fields.forEach((field, idx) => {
             const ref = textareaRefs[idx]
-            if (ref) {
-                collected[field.key] = ref.plainText.trim()
-            }
+            // Ensure we capture a value (empty string) even if ref is missing locally or text is empty
+            // This prevents falling back to session/persisted values when restoring state
+            collected[field.key] = ref?.plainText?.trim() || ""
         })
         return collected
     }
@@ -377,14 +409,68 @@ Acknowledge this engagement context.`
                                 </Show>
                             </box>
                             <box flexDirection="column">
-                                <text fg={theme.textMuted}>Custom Prompt:</text>
-                                <textarea
-                                    height={5}
-                                    placeholder="Enter custom prompt instructions for auto-fill..."
-                                    initialValue={aiSettings().prompt ?? (session() as any)?.engagement?.aiSettings?.prompt ?? ""}
-                                    ref={(val: TextareaRenderable) => { promptRef = val }}
-                                    textColor={theme.text}
-                                />
+                                <box flexDirection="row" justifyContent="space-between">
+                                    <text fg={theme.textMuted}>Custom Prompt:</text>
+                                    <Show when={aiSettings().prompt !== undefined && aiSettings().prompt !== defaultPrompt()}>
+                                        <text
+                                            fg={theme.primary}
+                                            onMouseUp={() => {
+                                                setAiSettings(prev => ({ ...prev, prompt: undefined }))
+                                                setIsPromptReady(false)
+                                                setTimeout(() => setIsPromptReady(true), 10)
+                                            }}
+                                        >
+                                            [Reset to Default]
+                                        </text>
+                                    </Show>
+                                </box>
+                                <box flexDirection="row" gap={1} alignItems="center">
+                                    <text fg={theme.textMuted}>
+                                        {(() => {
+                                            const p = aiSettings().prompt ?? (session() as any)?.engagement?.aiSettings?.prompt
+                                            if (p && p !== defaultPrompt()) return `Custom (${p.length} chars)`
+                                            if (defaultPrompt()) return `Default (${defaultPrompt().length} chars)`
+                                            return "Default (Loading...)"
+                                        })()}
+                                    </text>
+                                    <text
+                                        fg={theme.primary}
+                                        onMouseUp={() => {
+                                            const currentState = captureAllState()
+                                            const currentPrompt = aiSettings().prompt ?? (session() as any)?.engagement?.aiSettings?.prompt ?? defaultPrompt()
+
+                                            dialog.replace(() => <DialogTextEdit
+                                                title="Edit Engagement Prompt"
+                                                initialText={currentPrompt}
+                                                placeholder="Enter custom prompt instructions..."
+                                                onSave={(newText) => {
+                                                    dialog.replace(() => <DialogEngagement
+                                                        sessionID={props.sessionID}
+                                                        initialState={{
+                                                            ...currentState,
+                                                            aiSettings: {
+                                                                ...currentState.aiSettings,
+                                                                prompt: newText
+                                                            },
+                                                            isSettingsOpen: true
+                                                        }}
+                                                    />)
+                                                }}
+                                                onCancel={() => {
+                                                    dialog.replace(() => <DialogEngagement
+                                                        sessionID={props.sessionID}
+                                                        initialState={{
+                                                            ...currentState,
+                                                            isSettingsOpen: true
+                                                        }}
+                                                    />)
+                                                }}
+                                            />)
+                                        }}
+                                    >
+                                        [Edit]
+                                    </text>
+                                </box>
                             </box>
                         </box>
                     </Show>

@@ -92,6 +92,13 @@ export const SessionRoutes = lazy(() =>
         return c.json(result)
       },
     )
+    .get("/engagement/config", async (c) => {
+      const agent = await Agent.get("engagement")
+      if (!agent || !agent.prompt) {
+        return c.json({ error: "Engagement agent not found or missing prompt" }, 404)
+      }
+      return c.json({ prompt: agent.prompt })
+    })
     .post(
       "/engagement/generate",
       describeRoute({
@@ -153,26 +160,20 @@ export const SessionRoutes = lazy(() =>
         }
 
         // 2. Construct Prompt
-        const prompt = customPrompt || `You are an expert security engagement planner.
-Based on the following partial input, generate a comprehensive engagement configuration.
-Fill in missing details logically for a professional pentest/security assessment.
+        const engagementAgent = await Agent.get("engagement")
+        const defaultPrompt = engagementAgent?.prompt || ""
+        let promptTemplate = customPrompt || defaultPrompt
 
-Input:
-Name: ${current.name || "(Suggest a professional name)"}
-Scope: ${current.scope || "(Suggest standard scope)"}
-Targets: ${current.targets || "(Suggest standard targets)"}
-Exclusions: ${current.exclusions || "(Suggest standard exclusions)"}
-RoE: ${current.roe || "(Suggest standard rules)"}
+        if (!promptTemplate) {
+          throw new Error("Engagement prompt not found")
+        }
 
-Output Format:
-Return ONLY a valid JSON object with the following keys. Do not include markdown formatting.
-{
-"name": "string",
-"scope": "string",
-"targets": "string",
-"exclusions": "string",
-"roe": "string"
-}`
+        const prompt = promptTemplate
+          .replace("{{name}}", current.name || "(Suggest a professional name)")
+          .replace("{{scope}}", current.scope || "(Suggest standard scope)")
+          .replace("{{targets}}", current.targets || "(Suggest standard targets)")
+          .replace("{{exclusions}}", current.exclusions || "(Suggest standard exclusions)")
+          .replace("{{roe}}", current.roe || "(Suggest standard rules)")
 
         // 3. Call AI
         // Using a general agent or constructing a temporary one

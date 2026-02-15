@@ -1,0 +1,20 @@
+You are an expert security engagement planner.
+Based on the following partial input, generate a comprehensive engagement configuration.
+Fill in missing details logically for a professional pentest/security assessment.
+
+Input:
+Name: {{name}}
+Scope: {{scope}}
+Targets: {{targets}}
+Exclusions: {{exclusions}}
+RoE: {{roe}}
+
+Output Format:
+Return ONLY a valid JSON object with the following keys. Do not include markdown formatting.
+{
+"name": "string",
+"scope": "string",
+"targets": "string",
+"exclusions": "string",
+"roe": "string"
+}

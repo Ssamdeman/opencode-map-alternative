@@ -104,7 +104,7 @@ export const RunCommand = cmd({
       for (const filePath of files) {
         const resolvedPath = path.resolve(process.cwd(), filePath)
         const file = Bun.file(resolvedPath)
-        const stats = await file.stat().catch(() => {})
+        const stats = await file.stat().catch(() => { })
         if (!stats) {
           UI.error(`File not found: ${filePath}`)
           process.exit(1)
@@ -295,24 +295,24 @@ export const RunCommand = cmd({
         const result = await sdk.session.create(
           title
             ? {
-                title,
-                permission: [
-                  {
-                    permission: "question",
-                    action: "deny",
-                    pattern: "*",
-                  },
-                ],
-              }
+              title,
+              permission: [
+                {
+                  permission: "question",
+                  action: "deny",
+                  pattern: "*",
+                },
+              ],
+            }
             : {
-                permission: [
-                  {
-                    permission: "question",
-                    action: "deny",
-                    pattern: "*",
-                  },
-                ],
-              },
+              permission: [
+                {
+                  permission: "question",
+                  action: "deny",
+                  pattern: "*",
+                },
+              ],
+            },
         )
         return result.data?.id
       })()
@@ -338,7 +338,7 @@ export const RunCommand = cmd({
       return await execute(sdk, sessionID)
     }
 
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.env.OPENCODE_CWD || process.cwd(), async () => {
       const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init)
         return Server.App().fetch(request)

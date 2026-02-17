@@ -547,6 +547,25 @@ export const SessionRoutes = lazy(() =>
               }
             }
           }
+
+          // Auto-scaffold shared-resources/findings.json
+          const sharedResourcesDir = path.join(Instance.worktree, ".opencode", "shared-resources")
+          const findingsPath = path.join(sharedResourcesDir, "findings.json")
+
+          const findingsExists = await fs
+            .access(findingsPath)
+            .then(() => true)
+            .catch(() => false)
+
+          if (!findingsExists) {
+            const sourceFindings = path.resolve(process.cwd(), "packages/opencode/src/agent/pentest/shared-resources/findings.json")
+            await fs.mkdir(sharedResourcesDir, { recursive: true })
+            try {
+              await fs.copyFile(sourceFindings, findingsPath)
+            } catch (err) {
+              log.error("Failed to copy findings.json", { error: err })
+            }
+          }
         } catch (error) {
           log.error("Failed to scaffold pentest agents", { error })
         }

@@ -1,5 +1,8 @@
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
+import fs from "fs/promises"
+import path from "path"
+import { Instance } from "../../project/instance"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Session } from "../../session"
@@ -515,6 +518,38 @@ export const SessionRoutes = lazy(() =>
           },
           { touch: true },
         )
+
+        // Auto-scaffold pentest agent files if they don't exist
+        try {
+          const agentsDir = path.join(Instance.worktree, ".opencode", "agents")
+          const routerPath = path.join(agentsDir, "router.md")
+
+          // Check if router.md exists (sentinel file)
+          const exists = await fs
+            .access(routerPath)
+            .then(() => true)
+            .catch(() => false)
+
+          if (!exists) {
+            // Source directory for templates
+            const sourceDir = path.resolve(process.cwd(), "packages/opencode/src/agent/pentest")
+            const files = ["router.md", "recon.md", "explorer.md", "coder.md", "report.md"]
+
+            await fs.mkdir(agentsDir, { recursive: true })
+
+            for (const file of files) {
+              const src = path.join(sourceDir, file)
+              const dest = path.join(agentsDir, file)
+              try {
+                await fs.copyFile(src, dest)
+              } catch (err) {
+                log.error(`Failed to copy pentest agent file ${file}`, { error: err })
+              }
+            }
+          }
+        } catch (error) {
+          log.error("Failed to scaffold pentest agents", { error })
+        }
         return c.json(true)
       },
     )

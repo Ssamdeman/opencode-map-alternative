@@ -1,4 +1,34 @@
 {
+  "version": "0.1.1",
+  "date": "2026-02-18",
+  "focus": "Pentest Toolkit Skill System & Agent Enhancement",
+  "changes": [
+    "Added 5 default skill files to src/agent/pentest/skills/: ctf-methodology, recon-patterns, web-exploitation, report-format, scope-checker.",
+    "Extended scaffold() to copy skills/ into .opencode/skills/ on /engagement save (skip-if-exists, per-file).",
+    "Extended scaffold() to create empty .opencode/tools/ directory for future custom tool registration.",
+    "Added Bus.publish TuiEvent.ToastShow notifications to all scaffold steps (start, success, skip, error).",
+    "Enabled skill: true in all 5 pentest agent frontmatter configs.",
+    "Wired skill loading instructions into each agent: Router loads scope-checker, Recon loads recon-patterns + scope-checker, Explorer loads web-exploitation + ctf-methodology, Coder loads ctf-methodology + scope-checker, Report loads report-format."
+  ]
+}
+
+
+{
+  "version": "0.1.0",
+  "date": "2026-02-18",
+  "focus": "PenTest MoE — Mixture of Expert Agents Architecture",
+  "changes": [
+    "Introduced PenTest MoE orchestration: Router primary agent with 4 specialist sub-agents (Recon, Explorer, Coder, Report).",
+    "Auto-scaffold .opencode/agents/ with default pentest agent configs on /engagement save (skip-if-exists).",
+    "Auto-scaffold .opencode/shared-resources/findings.json for cross-agent findings and activity logging.",
+    "Auto-generate available-models.json listing all configured AI models for per-agent model assignment.",
+    "Added map-dev command for running modified OpenCode from any directory via OPENCODE_CWD override.",
+    "Fixed project directory fallback to use cwd instead of '/' when no .git found.",
+    "Router agent presents plans in chat for user approval before dispatching to sub-agents."
+  ]
+}
+
+{
   "version": "0.0.9",
   "date": "2026-02-15",
   "focus": "Engagement Prompt Refactor & Auto-Fill Stability",

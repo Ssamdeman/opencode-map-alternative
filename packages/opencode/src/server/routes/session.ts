@@ -23,6 +23,9 @@ import { SessionPromptCache } from "../../session/prompt-cache"
 import { Provider } from "@/provider/provider"
 import { LLM } from "@/session/llm"
 
+import { TuiEvent } from "../../cli/cmd/tui/event"
+import { Bus } from "../../bus"
+
 const log = Log.create({ service: "server" })
 
 export const SessionRoutes = lazy(() =>
@@ -519,56 +522,8 @@ export const SessionRoutes = lazy(() =>
           { touch: true },
         )
 
-        // Auto-scaffold pentest agent files if they don't exist
-        try {
-          const agentsDir = path.join(Instance.worktree, ".opencode", "agents")
-          const routerPath = path.join(agentsDir, "router.md")
-
-          // Check if router.md exists (sentinel file)
-          const exists = await fs
-            .access(routerPath)
-            .then(() => true)
-            .catch(() => false)
-
-          if (!exists) {
-            // Source directory for templates
-            const sourceDir = path.resolve(import.meta.dir, "../../agent/pentest")
-            const files = ["router.md", "recon.md", "explorer.md", "coder.md", "report.md"]
-
-            await fs.mkdir(agentsDir, { recursive: true })
-
-            for (const file of files) {
-              const src = path.join(sourceDir, file)
-              const dest = path.join(agentsDir, file)
-              try {
-                await fs.copyFile(src, dest)
-              } catch (err) {
-                log.error(`Failed to copy pentest agent file ${file}`, { error: err })
-              }
-            }
-          }
-
-          // Auto-scaffold shared-resources/findings.json
-          const sharedResourcesDir = path.join(Instance.worktree, ".opencode", "shared-resources")
-          const findingsPath = path.join(sharedResourcesDir, "findings.json")
-
-          const findingsExists = await fs
-            .access(findingsPath)
-            .then(() => true)
-            .catch(() => false)
-
-          if (!findingsExists) {
-            const sourceFindings = path.resolve(import.meta.dir, "../../agent/pentest/shared-resources/findings.json")
-            await fs.mkdir(sharedResourcesDir, { recursive: true })
-            try {
-              await fs.copyFile(sourceFindings, findingsPath)
-            } catch (err) {
-              log.error("Failed to copy findings.json", { error: err })
-            }
-          }
-        } catch (error) {
-          log.error("Failed to scaffold pentest agents", { error })
-        }
+        // Auto-scaffold pentest resources
+        await scaffold(Instance.worktree)
         return c.json(true)
       },
     )
@@ -1219,3 +1174,123 @@ export const SessionRoutes = lazy(() =>
       },
     ),
 )
+
+async function scaffold(worktree: string) {
+  await Bus.publish(TuiEvent.ToastShow, {
+    title: "Scaffolding",
+    message: "Starting pentest agent scaffolding...",
+    variant: "info",
+  })
+
+  // Helper to copy files from source to target directory with checking
+  const copyFiles = async (sourceDir: string, targetDir: string, label: string) => {
+    try {
+      if (!(await fs.stat(sourceDir).catch(() => false))) {
+        return
+      }
+      await fs.mkdir(targetDir, { recursive: true })
+      const files = await fs.readdir(sourceDir)
+      let copied = 0
+      let skipped = 0
+
+      for (const file of files) {
+        const src = path.join(sourceDir, file)
+        const dest = path.join(targetDir, file)
+
+        // Skip directories and non-files
+        const stat = await fs.stat(src)
+        if (!stat.isFile()) continue
+
+        if (await fs.stat(dest).catch(() => false)) {
+          skipped++
+        } else {
+          await fs.copyFile(src, dest)
+          copied++
+        }
+      }
+      await Bus.publish(TuiEvent.ToastShow, {
+        message: `${label}: ${copied} scaffolded, ${skipped} skipped`,
+        variant: "success",
+      })
+    } catch (error) {
+      await Bus.publish(TuiEvent.ToastShow, { message: `Failed to scaffold ${label}`, variant: "error" })
+      log.error(`Failed to scaffold ${label}`, { error })
+    }
+  }
+
+  // Agents
+  await copyFiles(
+    path.resolve(import.meta.dir, "../../agent/pentest"),
+    path.join(worktree, ".opencode", "agents"),
+    "Agents",
+  )
+
+  // Skills
+  await copyFiles(
+    path.resolve(import.meta.dir, "../../agent/pentest/skills"),
+    path.join(worktree, ".opencode", "skills"),
+    "Skills",
+  )
+
+  // Tools
+  await copyFiles(
+    path.resolve(import.meta.dir, "../../agent/pentest/tools"),
+    path.join(worktree, ".opencode", "tools"),
+    "Tools",
+  )
+
+  // Findings
+  try {
+    const sharedResourcesDir = path.join(worktree, ".opencode", "shared-resources")
+    await fs.mkdir(sharedResourcesDir, { recursive: true })
+    const findingsDest = path.join(sharedResourcesDir, "findings.json")
+    if (await fs.stat(findingsDest).catch(() => false)) {
+      await Bus.publish(TuiEvent.ToastShow, { message: "Findings: Skipped (exists)", variant: "warning" })
+    } else {
+      const findingsSrc = path.resolve(import.meta.dir, "../../agent/pentest/shared-resources/findings.json")
+      await fs.copyFile(findingsSrc, findingsDest)
+      await Bus.publish(TuiEvent.ToastShow, { message: "Findings: Scaffolded", variant: "success" })
+    }
+  } catch (error) {
+    await Bus.publish(TuiEvent.ToastShow, { message: "Failed to scaffold Findings", variant: "error" })
+    log.error("Failed to scaffold findings", { error })
+  }
+
+  // Available Models
+  try {
+    const sharedResourcesDir = path.join(worktree, ".opencode", "shared-resources")
+    const availableModelsPath = path.join(sharedResourcesDir, "available-models.json")
+    const providers = await Provider.list()
+    const modelsList = []
+
+    for (const provider of Object.values(providers)) {
+      for (const model of Object.values(provider.models)) {
+        modelsList.push({
+          id: `${provider.id}/${model.id}`,
+          provider: provider.id,
+          name: model.name,
+          best_for: "",
+        })
+      }
+    }
+
+    const content = JSON.stringify(
+      {
+        generated: new Date().toISOString(),
+        instructions:
+          "Copy a model value and paste into agent .md frontmatter as:  model: provider/model-id",
+        models: modelsList,
+      },
+      null,
+      2,
+    )
+
+    await fs.writeFile(availableModelsPath, content)
+  } catch (err) {
+    log.error("Failed to generate available-models.json", { error: err })
+    await Bus.publish(TuiEvent.ToastShow, {
+      message: "Failed to generate available-models.json",
+      variant: "error",
+    })
+  }
+}

@@ -532,7 +532,7 @@ export const SessionRoutes = lazy(() =>
 
           if (!exists) {
             // Source directory for templates
-            const sourceDir = path.resolve(process.cwd(), "packages/opencode/src/agent/pentest")
+            const sourceDir = path.resolve(import.meta.dir, "../../agent/pentest")
             const files = ["router.md", "recon.md", "explorer.md", "coder.md", "report.md"]
 
             await fs.mkdir(agentsDir, { recursive: true })
@@ -558,7 +558,7 @@ export const SessionRoutes = lazy(() =>
             .catch(() => false)
 
           if (!findingsExists) {
-            const sourceFindings = path.resolve(process.cwd(), "packages/opencode/src/agent/pentest/shared-resources/findings.json")
+            const sourceFindings = path.resolve(import.meta.dir, "../../agent/pentest/shared-resources/findings.json")
             await fs.mkdir(sharedResourcesDir, { recursive: true })
             try {
               await fs.copyFile(sourceFindings, findingsPath)

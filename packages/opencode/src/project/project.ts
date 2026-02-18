@@ -169,8 +169,8 @@ export namespace Project {
 
       return {
         id: "global",
-        worktree: "/",
-        sandbox: "/",
+        worktree: directory,
+        sandbox: directory,
         vcs: Info.shape.vcs.parse(Flag.OPENCODE_FAKE_VCS),
       }
     })

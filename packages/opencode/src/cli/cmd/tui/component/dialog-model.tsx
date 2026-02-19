@@ -141,10 +141,11 @@ export function DialogModel(props: { providerID?: string; onSelect?: (model: { p
               (item) => item.providerID === value.providerID && item.modelID === value.modelID,
             )
             if (inFavorites) return false
-            const inRecents = recentList.some(
-              (item) => item.providerID === value.providerID && item.modelID === value.modelID,
-            )
-            if (inRecents) return false
+            // REMOVED: Do not filter out recents from the main list. User wants to see them categorized.
+            // const inRecents = recentList.some(
+            //   (item) => item.providerID === value.providerID && item.modelID === value.modelID,
+            // )
+            // if (inRecents) return false
             return true
           }),
           sortBy(

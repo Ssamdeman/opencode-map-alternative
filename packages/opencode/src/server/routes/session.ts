@@ -1265,10 +1265,19 @@ async function scaffold(worktree: string) {
 
     for (const provider of Object.values(providers)) {
       for (const model of Object.values(provider.models)) {
+        let source: string = provider.source
+        if (source === "custom") {
+          if (provider.id === "ollama") source = "ollama-local"
+          else if (provider.id === "vllm") source = "vllm-local"
+        }
+
         modelsList.push({
           id: `${provider.id}/${model.id}`,
-          provider: provider.id,
           name: model.name,
+          provider: provider.id,
+          source,
+          baseURL: provider.options.baseURL,
+          tools: model.capabilities.toolcall,
           best_for: "",
         })
       }

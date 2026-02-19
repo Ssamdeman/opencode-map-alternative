@@ -40,7 +40,7 @@ export const ModelsCommand = cmd({
           const provider = providers[providerID]
           const sortedModels = Object.entries(provider.models).sort(([a], [b]) => a.localeCompare(b))
           for (const [modelID, model] of sortedModels) {
-            process.stdout.write(`${providerID}/${modelID}`)
+            process.stdout.write(`${providerID}/${modelID} [${providerID}]`)
             process.stdout.write(EOL)
             if (verbose) {
               process.stdout.write(JSON.stringify(model, null, 2))

@@ -1,6 +1,20 @@
 
 
 {
+  "version": "0.1.2",
+  "date": "2026-02-19",
+  "focus": "vLLM Auto-Discovery & Hot-Swap Model Routing",
+  "changes": [
+    "Added auto-discovery for local vLLM instances (http://localhost:8000/v1/models).",
+    "Implemented hot-swap capability to switch between Ollama and vLLM models mid-session.",
+    "Enriched available-models.json with provider, source, baseURL, and tools metadata.",
+    "Updated /models command to display [provider] tags (e.g., [vllm], [ollama]).",
+    "Fixed TUI 'Select model' dialog to correctly group Recent models under their Provider headers."
+  ]
+}
+
+
+{
   "version": "0.1.1",
   "date": "2026-02-18",
   "focus": "Pentest Toolkit Skill System & Agent Enhancement",

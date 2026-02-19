@@ -131,6 +131,18 @@ export namespace Provider {
         }
       }
     },
+    vllm: async () => {
+      return {
+        autoload: true,
+        options: {
+          baseURL: "http://localhost:8000/v1",
+          name: "vllm"
+        },
+        async getModel(sdk: any, modelID: string) {
+          return sdk.languageModel(modelID)
+        }
+      }
+    },
     openai: async () => {
       return {
         autoload: false,
@@ -748,6 +760,70 @@ export namespace Provider {
     }
   }
 
+  // vLLM Local Detection
+  async function detectVllmModels(): Promise<Info | null> {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
+
+      const res = await fetch("http://localhost:8000/v1/models", {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+
+      if (!res.ok) return null
+
+      const json = await res.json() as { data: Array<{ id: string }> }
+      if (!json.data || json.data.length === 0) return null
+
+      log.info("vllm detected", { count: json.data.length })
+
+      const models: Record<string, Model> = {}
+      for (const m of json.data) {
+        const id = m.id
+        models[id] = {
+          id,
+          providerID: "vllm",
+          name: id,
+          family: "vllm",
+          api: {
+            id,
+            url: "http://localhost:8000/v1",
+            npm: "@ai-sdk/openai-compatible"
+          },
+          status: "active",
+          headers: {},
+          options: {},
+          cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+          limit: { context: 32768, output: 4096 },
+          capabilities: {
+            temperature: true,
+            reasoning: false,
+            attachment: false,
+            toolcall: true,
+            input: { text: true, audio: false, image: false, video: false, pdf: false },
+            output: { text: true, audio: false, image: false, video: false, pdf: false },
+            interleaved: false
+          },
+          release_date: new Date().toISOString(),
+          variants: {}
+        }
+      }
+
+      return {
+        id: "vllm",
+        name: "vLLM (Local)",
+        source: "custom",
+        env: [],
+        options: { baseURL: "http://localhost:8000/v1" },
+        models
+      }
+    } catch (e) {
+      log.info("vllm not detected", { error: e instanceof Error ? e.message : String(e) })
+      return null
+    }
+  }
+
   const state = Instance.state(async () => {
     using _ = log.time("state")
     const config = await Config.get()
@@ -758,6 +834,12 @@ export namespace Provider {
     const ollamaProvider = await detectOllamaModels()
     if (ollamaProvider) {
       database["ollama"] = ollamaProvider
+    }
+
+    // Detect vLLM and inject into database
+    const vllmProvider = await detectVllmModels()
+    if (vllmProvider) {
+      database["vllm"] = vllmProvider
     }
 
     const disabled = new Set(config.disabled_providers ?? [])

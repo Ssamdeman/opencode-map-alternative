@@ -219,3 +219,17 @@ All sub-agents communicate their actual data and state changes by appending to a
 
 **Handoffs:**
 - Upon completion of their specialized tasks, every sub-agent is instructed to **"Report findings/completion back to Router"**, which is a natural language conversational hand-off mechanism indicating that the `findings.json` state has been updated and the Router should plan the next step based on the new data.
+
+### 3. Model Context Protocol (MCP) Integration
+MCP servers are integrated seamlessly into the agent's context through two primary mechanisms (handled in `src/session/prompt.ts`):
+
+**A. MCP Tools (`MCP.tools()`)**
+- At the start of a session loop, the system queries connected MCP servers for their available tools.
+- These tools are merged dynamically with OpenCode's native tools (like `bash`, `read`, `skill`).
+- To the agent, MCP tools look **identical** to native tools. They are injected into the LLM's system prompt as available JSON schemas.
+- When an agent calls an MCP tool, the response (which can contain text, images, or raw binary resources) is intercepted by OpenCode, mapped to standard message parts (e.g., base64 data URIs for images), and injected back into the conversation history as a tool result block.
+
+**B. MCP Resources (`MCP.readResource()`)**
+- If a user prompt or an agent action references an MCP resource URI (`part.source?.type === "resource"`), the system processes it before sending the prompt to the LLM.
+- It actively calls `MCP.readResource(clientName, uri)` to fetch the resource content.
+- The content is then injected directly into the LLM's context window as synthetic text messages (e.g., `Reading MCP resource: [filename] ([uri])` followed by the actual text or binary marker).

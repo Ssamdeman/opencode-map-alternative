@@ -1,3 +1,15 @@
+{
+  "version": "0.1.3",
+  "date": "2026-02-25",
+  "focus": "Pentest Agent Execution & Approval Flow",
+  "changes": [
+    "Activated direct BashTool execution for Recon agent, with explicit 'ask' user approval gate for security.",
+    "Enabled bash execution for Explorer with 'ask' mapping, alongside 'allow' for webfetch and websearch probing.",
+    "Granted Coder agent direct WriteTool and BashTool execution to test scripts, both relying on 'ask' approval.",
+    "Updated Router agent prompt to orchestrate tool execution naturally without executing commands itself.",
+    "Corrected Report agent permissions to explicitly deny bash while retaining safe filesystem read/write access."
+  ]
+}
 
 
 {

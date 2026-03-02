@@ -160,6 +160,11 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
                 sessionID = session.data!.id
             }
 
+            // Strip the helper model from settings so it doesn't leak into the session state
+            const persistedSettings = { ...settings }
+            delete persistedSettings.modelID
+            delete persistedSettings.providerID
+
             // 2. Save engagement data
             const url = new URL(`session/${sessionID}/engagement`, sdk.url).toString()
             const fetchFn = sdk.fetch || fetch
@@ -168,7 +173,7 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...collectedValues,
-                    aiSettings: settings
+                    aiSettings: persistedSettings
                 })
             })
 
@@ -187,10 +192,8 @@ Rules of Engagement: ${collectedValues.roe || "N/A"}
 
 Acknowledge this engagement context.`
 
-            // 4. Send message to LLM
-            const selectedModel = (settings.modelID && settings.providerID)
-                ? { providerID: settings.providerID, modelID: settings.modelID }
-                : local.model.current()
+            // 4. Send message to LLM using user's global primary model
+            const selectedModel = local.model.current()
 
             if (selectedModel) {
                 await sdk.client.session.prompt({

@@ -1,4 +1,16 @@
 {
+  "version": "0.1.3-BUGFIX",
+  "date": "2026-03-02",
+  "focus": "Engagement Submit Model Leak",
+  "changes": [
+    "Fixed model leak on engagement form submit.",
+    "Form-filling model is now scoped only to the form.",
+    "Session strictly inherits the active global model on save."
+  ]
+}
+
+
+{
   "version": "0.1.3",
   "date": "2026-02-25",
   "focus": "Pentest Agent Execution & Approval Flow",

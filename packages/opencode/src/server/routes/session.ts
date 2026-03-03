@@ -1189,23 +1189,38 @@ async function scaffold(worktree: string) {
         return
       }
       await fs.mkdir(targetDir, { recursive: true })
-      const files = await fs.readdir(sourceDir)
+      const items = await fs.readdir(sourceDir)
       let copied = 0
       let skipped = 0
 
-      for (const file of files) {
-        const src = path.join(sourceDir, file)
-        const dest = path.join(targetDir, file)
+      for (const item of items) {
+        const src = path.join(sourceDir, item)
+        const dest = path.join(targetDir, item)
 
-        // Skip directories and non-files
         const stat = await fs.stat(src)
-        if (!stat.isFile()) continue
-
-        if (await fs.stat(dest).catch(() => false)) {
-          skipped++
-        } else {
-          await fs.copyFile(src, dest)
-          copied++
+        if (stat.isDirectory()) {
+          await fs.mkdir(dest, { recursive: true })
+          const subItems = await fs.readdir(src)
+          for (const subItem of subItems) {
+            const subSrc = path.join(src, subItem)
+            const subDest = path.join(dest, subItem)
+            const subStat = await fs.stat(subSrc)
+            if (subStat.isFile()) {
+              if (await fs.stat(subDest).catch(() => false)) {
+                skipped++
+              } else {
+                await fs.copyFile(subSrc, subDest)
+                copied++
+              }
+            }
+          }
+        } else if (stat.isFile()) {
+          if (await fs.stat(dest).catch(() => false)) {
+            skipped++
+          } else {
+            await fs.copyFile(src, dest)
+            copied++
+          }
         }
       }
       await Bus.publish(TuiEvent.ToastShow, {

@@ -1,4 +1,16 @@
 {
+  "version": "0.1.3-BUGFIX-SKILLS",
+  "date": "2026-03-02",
+  "focus": "Skill Resolution Mismatch",
+  "changes": [
+    "Restructured pentest skills into [name]/SKILL.md format to comply with SkillTool requirements.",
+    "Injected valid YAML frontmatter (name, description) into all pentest skills.",
+    "Updated /engagement auto-scaffold logic to recursively copy nested skill directories."
+  ]
+}
+
+
+{
   "version": "0.1.3-BUGFIX",
   "date": "2026-03-02",
   "focus": "Engagement Submit Model Leak",

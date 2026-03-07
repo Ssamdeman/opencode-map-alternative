@@ -11,6 +11,7 @@ export class ShellSession {
     private process: ChildProcess
     private buffer: string = ""
     private readonly delimiter: string = "__MAP_END_SIG__"
+    private pendingReject: ((reason: Error) => void) | null = null
     private readonly isWindows: boolean
 
     private constructor(public readonly sessionID: string) {
@@ -42,10 +43,18 @@ export class ShellSession {
 
         this.process.on("error", (err) => {
             console.error("[ShellSession] Process error:", err)
+            if (this.pendingReject) {
+                this.pendingReject(err)
+                this.pendingReject = null
+            }
         })
 
         this.process.on("exit", (code) => {
             console.log("[ShellSession] Process exited with code:", code)
+            if (this.pendingReject) {
+                this.pendingReject(new Error(`[ShellSession] Process terminated unexpectedly with code ${code}`))
+                this.pendingReject = null
+            }
             ShellSession.instances.delete(this.sessionID)
         })
     }
@@ -67,6 +76,9 @@ export class ShellSession {
      */
     public execute(command: string): Promise<string> {
         return new Promise((resolve, reject) => {
+            // Track rejection to handle unexpected process exits mid-execution
+            this.pendingReject = reject
+
             // 1. Clear previous buffer
             this.buffer = ""
 
@@ -92,6 +104,7 @@ export class ShellSession {
                 if (this.buffer.includes(this.delimiter)) {
                     clearTimeout(timeout)
                     clearInterval(checkInterval)
+                    this.pendingReject = null
 
                     // 5. Clean output: remove delimiter and trim
                     let output = this.buffer
@@ -134,7 +147,16 @@ export class ShellSession {
     public terminate(): void {
         if (this.process) {
             this.process.kill()
-            ShellSession.instances.delete(this.sessionID)
+        }
+    }
+
+    /**
+     * Terminate the shell session by instance ID
+     */
+    public static terminate(sessionID: string): void {
+        const instance = ShellSession.instances.get(sessionID)
+        if (instance) {
+            instance.terminate()
         }
     }
 }

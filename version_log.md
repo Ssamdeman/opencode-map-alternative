@@ -1,4 +1,17 @@
 {
+  "version": "0.1.4",
+  "date": "2026-03-07",
+  "focus": "Multi-Terminal Agent Architecture",
+  "changes": [
+    "Implemented per-agent isolated ShellSessions to prevent shared terminal hangs.",
+    "Scoped permission and question prompts directly to child agent views in TUI.",
+    "Refactored TaskTool to reuse existing persistent child agent sessions on re-dispatch.",
+    "Added ShellSession cleanup to Session.remove() for cascading deletion of shells."
+  ]
+}
+
+
+{
   "version": "0.1.3-BUGFIX-SKILLS",
   "date": "2026-03-02",
   "focus": "Skill Resolution Mismatch",

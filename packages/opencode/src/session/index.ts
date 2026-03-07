@@ -24,6 +24,7 @@ import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
 import { Transparent } from "./transparent"
 import { SessionPromptCache } from "./prompt-cache"
+import { ShellSession } from "../shell/shell-session"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -398,6 +399,10 @@ export namespace Session {
         await Storage.remove(msg)
       }
       await Storage.remove(["session", project.id, sessionID])
+      
+      // Terminate any associated persistent shell session (like BashTool processes)
+      ShellSession.terminate(sessionID)
+
       Bus.publish(Event.Deleted, {
         info: session,
       })

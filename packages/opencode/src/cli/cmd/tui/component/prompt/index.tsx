@@ -40,6 +40,7 @@ export type PromptProps = {
   ref?: (ref: PromptRef) => void
   hint?: JSX.Element
   showPlaceholder?: boolean
+  waitingChild?: string
 }
 
 export type PromptRef = {
@@ -1055,6 +1056,11 @@ export function Prompt(props: PromptProps) {
                   </Show>
                 </box>
                 <box flexDirection="row" gap={1} flexShrink={0}>
+                  <Show when={props.waitingChild}>
+                    <text fg={theme.textMuted}>
+                      Waiting for <span style={{ fg: theme.text }}>{props.waitingChild}</span>
+                    </text>
+                  </Show>
                   {(() => {
                     const retry = createMemo(() => {
                       const s = status()

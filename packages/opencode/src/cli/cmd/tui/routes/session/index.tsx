@@ -128,6 +128,16 @@ export function Session() {
     return sync.data.question[route.sessionID] ?? []
   })
 
+  const waitingChild = createMemo(() => {
+    if (session()?.parentID) return undefined
+    for (const child of children()) {
+      if (child.id === route.sessionID) continue
+      if ((sync.data.permission[child.id]?.length ?? 0) > 0) return child.title
+      if ((sync.data.question[child.id]?.length ?? 0) > 0) return child.title
+    }
+    return undefined
+  })
+
   const pending = createMemo(() => {
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
   })
@@ -1080,6 +1090,7 @@ export function Session() {
                   toBottom()
                 }}
                 sessionID={route.sessionID}
+                waitingChild={waitingChild()}
               />
             </box>
           </Show>

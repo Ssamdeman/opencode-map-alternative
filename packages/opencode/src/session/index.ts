@@ -58,6 +58,7 @@ export namespace Session {
       projectID: z.string(),
       directory: z.string(),
       parentID: Identifier.schema("session").optional(),
+      agent: z.string().optional(),
       summary: z
         .object({
           additions: z.number(),
@@ -165,6 +166,7 @@ export namespace Session {
       .object({
         parentID: Identifier.schema("session").optional(),
         title: z.string().optional(),
+        agent: z.string().optional(),
         permission: Info.shape.permission,
       })
       .optional(),
@@ -173,6 +175,7 @@ export namespace Session {
         parentID: input?.parentID,
         directory: Instance.directory,
         title: input?.title,
+        agent: input?.agent,
         permission: input?.permission,
       })
     },
@@ -230,6 +233,7 @@ export namespace Session {
     id?: string
     title?: string
     parentID?: string
+    agent?: string
     directory: string
     permission?: PermissionNext.Ruleset
   }) {
@@ -240,6 +244,7 @@ export namespace Session {
       projectID: Instance.project.id,
       directory: input.directory,
       parentID: input.parentID,
+      agent: input.agent,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
       time: {

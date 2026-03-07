@@ -64,9 +64,19 @@ export const TaskTool = Tool.define("task", async (ctx) => {
           const found = await Session.get(params.session_id).catch(() => {})
           if (found) return found
         }
+        
+        // --- Check for existing child session for this agent ---
+        const existingChildren = await Session.children(ctx.sessionID)
+        const existingSession = existingChildren.find(c => c.agent === agent.name)
+        
+        if (existingSession) {
+           return existingSession
+        }
+        // -------------------------------------------------------
 
         return await Session.create({
           parentID: ctx.sessionID,
+          agent: agent.name,
           title: params.description + ` (@${agent.name} subagent)`,
           permission: [
             {

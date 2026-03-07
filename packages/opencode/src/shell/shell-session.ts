@@ -6,14 +6,14 @@ import fs from "fs"
  * Maintains environment variables and directory state across multiple commands.
  */
 export class ShellSession {
-    private static instance: ShellSession | null = null
+    private static instances = new Map<string, ShellSession>()
 
     private process: ChildProcess
     private buffer: string = ""
     private readonly delimiter: string = "__MAP_END_SIG__"
     private readonly isWindows: boolean
 
-    private constructor() {
+    private constructor(public readonly sessionID: string) {
         this.isWindows = process.platform === "win32"
 
         if (this.isWindows) {
@@ -46,18 +46,18 @@ export class ShellSession {
 
         this.process.on("exit", (code) => {
             console.log("[ShellSession] Process exited with code:", code)
-            ShellSession.instance = null
+            ShellSession.instances.delete(this.sessionID)
         })
     }
 
     /**
      * Get or create the singleton instance
      */
-    public static getInstance(): ShellSession {
-        if (!ShellSession.instance) {
-            ShellSession.instance = new ShellSession()
+    public static getInstance(sessionID: string): ShellSession {
+        if (!ShellSession.instances.has(sessionID)) {
+            ShellSession.instances.set(sessionID, new ShellSession(sessionID))
         }
-        return ShellSession.instance
+        return ShellSession.instances.get(sessionID)!
     }
 
     /**
@@ -134,7 +134,7 @@ export class ShellSession {
     public terminate(): void {
         if (this.process) {
             this.process.kill()
-            ShellSession.instance = null
+            ShellSession.instances.delete(this.sessionID)
         }
     }
 }

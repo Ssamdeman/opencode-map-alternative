@@ -160,7 +160,7 @@ export const BashTool = Tool.define("bash", async () => {
       }
 
       // MAP: Get persistent shell session (Phase B integration)
-      const session = ShellSession.getInstance()
+      const session = ShellSession.getInstance(ctx.sessionID)
 
       // Handle workdir change if specified
       if (params.workdir && params.workdir !== Instance.directory) {

@@ -1427,7 +1427,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     await Session.updatePart(part)
 
     // MAP: Use persistent ShellSession instead of spawning new process
-    const shellSession = ShellSession.getInstance()
+    const shellSession = ShellSession.getInstance(input.sessionID)
     let output = ""
     let aborted = false
 

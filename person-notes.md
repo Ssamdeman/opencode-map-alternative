@@ -644,14 +644,32 @@ Instructions from: {absolute_file_path}
 | `<files>` tree | ❌ Always appended |
 | AGENTS.md instructions | ❌ Always appended |
 
----
 
-## Future Build Hooks
 
-Potential extension points identified:
 
-1. **Per-layer editing** — Allow editing Layer 2/3 independently (env, instructions)
-2. **Prompt templates** — Save/load named prompt presets per session
-3. **Agent-specific overrides** — Edit agent prompts (title, summary, compaction) per session
-4. **Prompt versioning** — Track prompt edit history within a session
-5. **Persistent overrides** — Option to save custom prompts beyond 4hr TTL / across sessions
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Yes, you are exactly right about how it works conceptually! Here is the breakdown of **how**, **when**, and **where** it is saved based on the implementation:
+
+### 1. Does the sub-agent have history, so they don't start from zero?
+**Yes.** The [ShellSession](cci:2://file:///c:/Users/Samue/Documents/projects/github/opencode-map-alternative/packages/opencode/src/shell/shell-session.ts:7:0-161:1) implementation (in [shell-session.ts](cci:7://file:///c:/Users/Samue/Documents/projects/github/opencode-map-alternative/packages/opencode/src/shell/shell-session.ts:0:0-0:0)) creates a persistent "in-memory" background terminal process (`powershell.exe` on Windows, `bash` or `zsh` on Unix) for each unique session ID. 
+- Because this actual terminal process is kept alive behind the scenes, it maintains the state. 
+- The result is that if an agent runs `cd some_folder` or sets an environment variable like `export $FOO="bar"`, the terminal remembers it for the next command they execute. They don't have to start from scratch every time!
+
+### 2. When is it saved?
+There are two different types of "saving" happening here:
+* **The Terminal State (In-Memory)**: The actual background shell process just lives in your computer's memory while OpenCode is currently running. If you restart the specific OpenCode application process, the active live terminals are terminated and the underlying shell state (like current working directory) restarts.
+* **The Outputs and History (Persistent)**: Even though the live terminal might die on a restart, the actual commands the agent ran and the **outputs** they produced are saved to the session's overall history continuously immediately after every command is executed. 
+
+### 3. Where are the sessions saved?
+All session data is persisted locally as **JSON files**. The [Session](cci:2://file:///c:/Users/Samue/Documents/projects/github/opencode-map-alternative/packages/opencode/src/shell/shell-session.ts:7:0-161:1) and `Storage` managers (in [session/index.ts](cci:7://file:///c:/Users/Samue/Documents/projects/github/opencode-map-alternative/packages/opencode/src/session/index.ts:0:0-0:0) and [storage/storage.ts](cci:7://file:///c:/Users/Samue/Documents/projects/github/opencode-map-alternative/packages/opencode/src/storage/storage.ts:0:0-0:0)) handle writing this out. 
+
+Depending on your overall setup, it is saved in your global data folder (usually inside your user directory `.opencode-data/storage` or `.opencode/storage` inside the project).
+
+The storage system organizes everything cleanly like this:
+* **Session Metadata:** `storage/session/<project-id>/<session-id>.json`
+* **Agent Message History / Outputs:** `storage/message/<session-id>/<message-id>.json`
+
+So, in summary: the fast, context-aware shell state is kept alive in memory for speed and isolation, but a permanent hard record of everything the shell spits out is safely written to disk as JSON files inside your storage directory.

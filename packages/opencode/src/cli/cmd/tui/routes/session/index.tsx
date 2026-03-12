@@ -75,6 +75,7 @@ import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
+import { scaffoldingSessions } from "../../state/scaffold"
 
 
 addDefaultParsers(parsers.parsers)
@@ -1115,6 +1116,21 @@ export function Session() {
               </box>
             </Match>
           </Switch>
+        </Show>
+        <Show when={scaffoldingSessions().includes(route.sessionID)}>
+          <box
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            backgroundColor={RGBA.fromInts(0, 0, 0, 150)}
+            alignItems="center"
+            justifyContent="center"
+            flexDirection="column"
+          >
+            <text fg={theme.primary}>⠋ Scaffolding agents...</text>
+          </box>
         </Show>
       </box>
     </context.Provider>

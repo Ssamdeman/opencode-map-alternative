@@ -12,6 +12,7 @@ import { useSDK } from "../context/sdk"
 import { DialogModel } from "./dialog-model"
 import { DialogTextEdit } from "./dialog-text-edit"
 import { DialogEngagementGenerate } from "./dialog-engagement-generate"
+import { addScaffold, removeScaffold } from "../state/scaffold"
 
 export type DialogEngagementState = {
     draftValues?: Record<string, string>
@@ -177,63 +178,65 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
             delete persistedSettings.modelID
             delete persistedSettings.providerID
 
-            // 2. Save engagement data
-            const url = new URL(`session/${sessionID}/engagement`, sdk.url).toString()
-            const fetchFn = sdk.fetch || fetch
-            const res = await fetchFn(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...collectedValues,
-                    aiSettings: persistedSettings
-                })
-            })
-
-            if (!res.ok) {
-                throw new Error(`Server returned ${res.status}`)
-            }
-
-            // 3. Construct message
-            const message = `Here is my engagement briefing:
-
-Name: ${collectedValues.name || "N/A"}
-Scope: ${collectedValues.scope || "N/A"}
-In-Scope Targets: ${collectedValues.targets || "N/A"}
-Exclusions: ${collectedValues.exclusions || "N/A"}
-Rules of Engagement: ${collectedValues.roe || "N/A"}
-
-Acknowledge this engagement context.`
-
-            // 4. Send message to LLM using user's global primary model
-            const selectedModel = local.model.current()
-
-            if (selectedModel) {
-                await sdk.client.session.prompt({
-                    sessionID,
-                    ...selectedModel,
-                    messageID: Identifier.ascending("message"),
-                    agent: local.agent.current().name,
-                    model: selectedModel,
-                    variant: local.model.variant.current(),
-                    parts: [{
-                        id: Identifier.ascending("part"),
-                        type: "text",
-                        text: message
-                    }]
-                })
-            } else {
-                toast.show({ variant: "warning", message: "Engagement saved, but connect a provider to send briefing." })
-            }
-
-            // 5. Navigate to session
+            // 5. Navigate to session immediately and trigger overlay
+            addScaffold(sessionID)
             route.navigate({ type: "session", sessionID })
-
-            toast.show({ message: "Engagement saved", variant: "success" })
             dialog.clear()
+
+            // Run scaffolding and prompt in the background
+            ;(async () => {
+                try {
+                    // 2. Save engagement data and wait for scaffolding
+                    const url = new URL(`session/${sessionID}/engagement`, sdk.url).toString()
+                    const fetchFn = sdk.fetch || fetch
+                    const res = await fetchFn(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            ...collectedValues,
+                            aiSettings: persistedSettings
+                        })
+                    })
+
+                    if (!res.ok) {
+                        throw new Error(`Server returned ${res.status}`)
+                    }
+
+                    // 3. Construct message
+                    const message = `Here is my engagement briefing:\n\nName: ${collectedValues.name || "N/A"}\nScope: ${collectedValues.scope || "N/A"}\nIn-Scope Targets: ${collectedValues.targets || "N/A"}\nExclusions: ${collectedValues.exclusions || "N/A"}\nRules of Engagement: ${collectedValues.roe || "N/A"}\n\nAcknowledge this engagement context.`
+
+                    // 4. Send message to LLM using user's global primary model
+                    const selectedModel = local.model.current()
+
+                    if (selectedModel) {
+                        await sdk.client.session.prompt({
+                            sessionID,
+                            ...selectedModel,
+                            messageID: Identifier.ascending("message"),
+                            agent: local.agent.current().name,
+                            model: selectedModel,
+                            variant: local.model.variant.current(),
+                            parts: [{
+                                id: Identifier.ascending("part"),
+                                type: "text",
+                                text: message
+                            }]
+                        })
+                    } else {
+                        toast.show({ variant: "warning", message: "Engagement saved, but connect a provider to send briefing." })
+                    }
+
+                    toast.show({ message: "Engagement saved", variant: "success" })
+                } catch (error) {
+                    toast.show({ message: "Failed to save engagement", variant: "error" })
+                    console.error(error)
+                } finally {
+                    removeScaffold(sessionID)
+                }
+            })();
         } catch (error) {
-            toast.show({ message: "Failed to save engagement", variant: "error" })
+            toast.show({ message: "Failed to create session", variant: "error" })
             console.error(error)
-        } finally {
             setIsSaving(false)
         }
     }

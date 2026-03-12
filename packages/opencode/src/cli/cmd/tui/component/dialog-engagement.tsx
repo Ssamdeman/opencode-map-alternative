@@ -252,7 +252,6 @@ Acknowledge this engagement context.`
                 <text attributes={TextAttributes.BOLD} fg={theme.text}>
                     Create Engagement
                 </text>
-                <text fg={theme.textMuted}>esc</text>
             </box>
 
             {/* Fields */}
@@ -273,6 +272,7 @@ Acknowledge this engagement context.`
                                         textColor={theme.text}
                                         focusedTextColor={theme.text}
                                         cursorColor={theme.text}
+                                        onMouseUp={() => setFocusIdx(idx())}
                                         onSubmit={() => {
                                             // Optional: enter moves to next field if we decide to implement that.
                                         }}
@@ -408,10 +408,10 @@ Acknowledge this engagement context.`
             <box flexDirection="row" gap={2} paddingTop={1} justifyContent="space-between">
                 <box flexDirection="row" gap={2}>
                     <text fg={theme.success} onMouseUp={handleSave}>
-                        {isSaving() ? "[Saving...]" : "[Save] (Ctrl+S)"}
+                        {isSaving() ? "[Saving...]" : "[Save]"}
                     </text>
                     <text fg={theme.textMuted} onMouseUp={handleCancel}>
-                        [Cancel] (Esc)
+                        [Cancel]
                     </text>
                 </box>
                 <text fg={theme.warning} onMouseUp={handleAutoFillRequest}>

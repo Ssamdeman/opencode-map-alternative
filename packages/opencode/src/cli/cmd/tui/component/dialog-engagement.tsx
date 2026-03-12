@@ -1,4 +1,4 @@
-import { TextAttributes, type TextareaRenderable } from "@opentui/core"
+import { TextAttributes, type TextareaRenderable, type ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog } from "../ui/dialog"
 import { useToast } from "../ui/toast"
@@ -77,6 +77,7 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
 
     // Refs for textareas to manage focus
     const textareaRefs: (TextareaRenderable | undefined)[] = []
+    let scrollRef: ScrollBoxRenderable | undefined
 
     // Get session data
     const session = createMemo(() => props.sessionID ? sync.session.get(props.sessionID) : undefined)
@@ -90,6 +91,17 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
             const ref = textareaRefs[idx]
             if (ref && !ref.isDestroyed) {
                 ref.focus()
+            }
+
+            if (ref && scrollRef && !scrollRef.isDestroyed) {
+                const yOffset = ref.y - scrollRef.y - 1
+                const itemHeight = 4
+
+                if (yOffset < 0) {
+                    scrollRef.scrollBy(yOffset)
+                } else if (yOffset + itemHeight > scrollRef.height) {
+                    scrollRef.scrollBy(yOffset + itemHeight - scrollRef.height + 1)
+                }
             }
         }, 10)
     })
@@ -255,29 +267,38 @@ Acknowledge this engagement context.`
             </box>
 
             {/* Fields */}
-            <scrollbox maxHeight={20}>
+            <scrollbox maxHeight={20} ref={(r: ScrollBoxRenderable) => { scrollRef = r }}>
                 <box flexDirection="column" gap={1}>
                     <Show when={props.sessionID ? session() : true} fallback={<text fg={theme.textMuted}>Loading session...</text>}>
                         <For each={fields}>
                             {(field, idx) => (
-                                <box flexDirection="column">
-                                    <text fg={focusIdx() === idx() ? theme.primary : theme.textMuted}>
-                                        {field.label}
-                                    </text>
-                                    <textarea
-                                        height={3}
-                                        placeholder={field.placeholder}
-                                        initialValue={draftValues()[field.key] ?? engagement()[field.key] ?? ""}
-                                        ref={(val: TextareaRenderable) => { textareaRefs[idx()] = val }}
-                                        textColor={theme.text}
-                                        focusedTextColor={theme.text}
-                                        cursorColor={theme.text}
-                                        onMouseUp={() => setFocusIdx(idx())}
-                                        onSubmit={() => {
-                                            // Optional: enter moves to next field if we decide to implement that.
-                                        }}
-                                    />
-                                </box>
+                                        <box 
+                                            flexDirection="column"
+                                            borderStyle="rounded"
+                                            borderColor={focusIdx() === idx() ? theme.primary : theme.borderSubtle}
+                                            backgroundColor={focusIdx() === idx() ? theme.backgroundElement : undefined}
+                                            paddingLeft={1}
+                                            paddingRight={1}
+                                            paddingTop={focusIdx() === idx() ? 1 : 0}
+                                            paddingBottom={focusIdx() === idx() ? 1 : 0}
+                                        >
+                                            <text fg={focusIdx() === idx() ? theme.primary : theme.textMuted}>
+                                                {field.label}
+                                            </text>
+                                            <textarea
+                                                height={3}
+                                                placeholder={field.placeholder}
+                                                initialValue={draftValues()[field.key] ?? engagement()[field.key] ?? ""}
+                                                ref={(val: TextareaRenderable) => { textareaRefs[idx()] = val }}
+                                                textColor={theme.text}
+                                                focusedTextColor={theme.text}
+                                                cursorColor={theme.text}
+                                                onMouseUp={() => setFocusIdx(idx())}
+                                                onSubmit={() => {
+                                                    // Optional: enter moves to next field if we decide to implement that.
+                                                }}
+                                            />
+                                        </box>
                             )}
                         </For>
                     </Show>

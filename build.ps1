@@ -125,6 +125,41 @@ if (-not (Get-Command "bun" -ErrorAction SilentlyContinue)) {
 Write-Step "Installing packages..."
 bun install
 
+# 2.5 REGISTER GLOBAL COMMAND
+Write-Step "Registering 'map-dev' command globally..."
+$InstallDir = "$env:USERPROFILE\.opencode\bin"
+$RepoRoot = (Get-Location).Path
+
+if (-not (Test-Path $InstallDir)) {
+    New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+}
+
+$ps1WrapperPath = Join-Path $InstallDir "map-dev.ps1"
+$ps1WrapperContent = @"
+`$env:OPENCODE_CWD = (Get-Location).Path
+Set-Location "$RepoRoot"
+bun dev `$args
+"@
+Set-Content -Path $ps1WrapperPath -Value $ps1WrapperContent -Force
+
+$cmdWrapperPath = Join-Path $InstallDir "map-dev.cmd"
+$cmdWrapperContent = @"
+@echo off
+powershell -ExecutionPolicy Bypass -File "%~dp0map-dev.ps1" %*
+"@
+Set-Content -Path $cmdWrapperPath -Value $cmdWrapperContent -Force
+
+$CurrentPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::User)
+if ($CurrentPath -notmatch [regex]::Escape($InstallDir)) {
+    $NewPath = "$CurrentPath;$InstallDir"
+    [Environment]::SetEnvironmentVariable("Path", $NewPath, [EnvironmentVariableTarget]::User)
+    Write-Host "  Added $InstallDir to User PATH." -ForegroundColor Green
+} else {
+    Write-Host "  $InstallDir is already in User PATH." -ForegroundColor Gray
+}
+
+Write-Host "  map-dev registered. Restart your terminal, then run \`map-dev\` from any folder." -ForegroundColor Cyan
+
 # 3. BUILD & START
 Write-Step "Starting OpenCode TUI (Dev Mode)..."
 

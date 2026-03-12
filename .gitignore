@@ -26,3 +26,14 @@ target
 opencode-dev
 logs/
 *.bun-build
+
+#person 
+person-notes.md
+ORCHESTRATION-PenTest-MoEv0-1.md
+agen-2.md
+agen-3.md
+agent-1.md
+agent-4.md
+agent-5.md
+not-git-stuff/*
+OG-Stuff/*

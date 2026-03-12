@@ -120,6 +120,58 @@ fi
 write_step "Installing packages..."
 bun install
 
+# 2.5. REGISTER GLOBAL COMMAND
+write_step "Registering 'map-dev' command globally..."
+INSTALL_DIR="$HOME/.opencode/bin"
+REPO_ROOT="$(pwd)"
+
+mkdir -p "$INSTALL_DIR"
+
+cat <<EOF > "$INSTALL_DIR/map-dev"
+#!/usr/bin/env bash
+export OPENCODE_CWD="\$(pwd)"
+cd "$REPO_ROOT" && bun dev "\$@"
+EOF
+chmod +x "$INSTALL_DIR/map-dev"
+
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+current_shell=$(basename "$SHELL")
+case $current_shell in
+    fish) config_files="$HOME/.config/fish/config.fish" ;;
+    zsh) config_files="${ZDOTDIR:-$HOME}/.zshrc ${ZDOTDIR:-$HOME}/.zshenv $XDG_CONFIG_HOME/zsh/.zshrc $XDG_CONFIG_HOME/zsh/.zshenv" ;;
+    bash) config_files="$HOME/.bashrc $HOME/.bash_profile $HOME/.profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile" ;;
+    *) config_files="$HOME/.bashrc $HOME/.bash_profile $HOME/.profile" ;;
+esac
+
+add_to_path() {
+    local config_file=$1
+    local command=$2
+    if grep -Fxq "$command" "$config_file" 2>/dev/null; then
+        write_host_color "gray" "PATH export already exists in $config_file"
+    elif [[ -w $config_file ]]; then
+        echo -e "\n# map-dev wrapper" >> "$config_file"
+        echo "$command" >> "$config_file"
+        write_host_color "green" "Added map-dev to PATH in $config_file"
+    fi
+}
+
+config_file=""
+for file in $config_files; do
+    if [[ -f $file ]]; then
+        config_file=$file
+        break
+    fi
+done
+
+if [[ -n $config_file ]] && [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    case $current_shell in
+        fish) add_to_path "$config_file" "fish_add_path $INSTALL_DIR" ;;
+        *) add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH" ;;
+    esac
+fi
+
+write_host_color "cyan" "map-dev registered. Restart your terminal, then run 'map-dev' from any folder."
+
 # 3. BUILD & START
 write_step "Starting OpenCode TUI (Dev Mode)..."
 

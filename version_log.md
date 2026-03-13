@@ -1,4 +1,18 @@
 {
+  "version": "0.1.5",
+  "date": "2026-03-12",
+  "focus": "Engagement Form UX Enhancements",
+  "changes": [
+    "Fixed focus management: clicking a field now correctly sets focus and highlights the field label.",
+    "Integrated scroll-to-focus: the dialog automatically scrolls focused fields into view during keyboard and mouse navigation.",
+    "Improved visual aesthetics: implemented rounded borders, active background colors, and padded containers for the active field.",
+    "Added a translucent loading overlay to the session view that appears during the backend scaffolding process.",
+    "Streamlined agent orchestration: the application now auto-switches back to the Router agent seamlessly upon engagement submission."
+  ]
+}
+
+
+{
   "version": "0.1.4",
   "date": "2026-03-07",
   "focus": "Multi-Terminal Agent Architecture",

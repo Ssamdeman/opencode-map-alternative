@@ -208,6 +208,12 @@ export function DialogEngagement(props: { sessionID?: string; initialState?: Dia
                     // 4. Send message to LLM using user's global primary model
                     const selectedModel = local.model.current()
 
+                    // Switch active agent to Router for the engagement
+                    const routerAgent = local.agent.list().find(a => a.name.toLowerCase() === "router")
+                    if (routerAgent) {
+                        local.agent.set(routerAgent.name)
+                    }
+
                     if (selectedModel) {
                         await sdk.client.session.prompt({
                             sessionID,

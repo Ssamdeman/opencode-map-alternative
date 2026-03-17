@@ -1,4 +1,16 @@
 {
+  "version": "0.1.9",
+  "date": "2026-03-17",
+  "focus": "Shell Mode No-Session Guard",
+  "changes": [
+    "Added guard in submit() in prompt/index.tsx: if shell mode is active but no session exists, block command execution.",
+    "Shows warning toast 'Start a conversation to activate Shell' instead of silently creating a session.",
+    "Existing shell mode behavior inside an active session is unchanged."
+  ]
+}
+
+
+{
   "version": "0.1.8",
   "date": "2026-03-17",
   "focus": "OS-Aware Layer 4 Agent Prompts",

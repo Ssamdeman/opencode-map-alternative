@@ -572,6 +572,10 @@ export function Prompt(props: PromptProps) {
     const variant = local.model.variant.current()
 
     if (store.mode === "shell") {
+      if (!props.sessionID) {
+        toast.show({ message: "Start a conversation to activate Shell", variant: "warning" })
+        return
+      }
       sdk.client.session.shell({
         sessionID,
         agent: local.agent.current().name,

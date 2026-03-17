@@ -9,6 +9,7 @@ import { Log } from "@/util/log"
 import { Wildcard } from "@/util/wildcard"
 import os from "os"
 import z from "zod"
+import { Flag } from "@/flag/flag"
 
 export namespace PermissionNext {
   const log = Log.create({ service: "permission" })
@@ -234,7 +235,12 @@ export namespace PermissionNext {
     const match = merged.findLast(
       (rule) => Wildcard.match(permission, rule.permission) && Wildcard.match(pattern, rule.pattern),
     )
-    return match ?? { action: "ask", permission, pattern: "*" }
+    const rule = match ?? { action: "ask", permission, pattern: "*" }
+    if (rule.action === "ask" && Flag.OPENCODE_AUTORUN) {
+        log.info("autorun enabled, changing ask to allow", { permission, pattern })
+        return { ...rule, action: "allow" }
+    }
+    return rule
   }
 
   const EDIT_TOOLS = ["edit", "write", "patch", "multiedit"]

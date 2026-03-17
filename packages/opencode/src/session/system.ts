@@ -42,6 +42,7 @@ export namespace SystemPrompt {
 
   export async function environment(model: Provider.Model) {
     const project = Instance.project
+    const shell = process.platform === "win32" ? "PowerShell" : "bash"
     return [
       [
         `You are powered by the model named ${model.api.id}. The exact model ID is ${model.providerID}/${model.api.id}`,
@@ -50,8 +51,10 @@ export namespace SystemPrompt {
         `  Working directory: ${Instance.directory}`,
         `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
         `  Platform: ${process.platform}`,
+        `  Shell: ${shell}`,
         `  Today's date: ${new Date().toDateString()}`,
         `</env>`,
+        `Always use commands compatible with the Shell above. Never use bash on Windows or PowerShell on Linux.`,
         `<files>`,
         `  ${project.vcs === "git" && false
           ? await Ripgrep.tree({

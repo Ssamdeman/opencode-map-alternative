@@ -333,6 +333,25 @@ export function Session() {
       },
     },
     {
+      title: "Toggle Autorun",
+      value: "session.autorun",
+      category: "Session",
+      hidden: false,
+      enabled: true,
+      slash: {
+        name: "autorun",
+      },
+      onSelect: (dialog) => {
+        Flag.OPENCODE_AUTORUN = !Flag.OPENCODE_AUTORUN
+        toast.show({
+          message: Flag.OPENCODE_AUTORUN ? "Autorun: ON" : "Autorun: OFF",
+          variant: "success",
+          duration: 3000,
+        })
+        dialog.clear()
+      },
+    },
+    {
       title: "Rename session",
       value: "session.rename",
       keybind: "session_rename",

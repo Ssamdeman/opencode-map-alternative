@@ -6,7 +6,7 @@ import { Logo } from "../component/logo"
 import { Tips } from "../component/tips"
 import { Locale } from "@/util/locale"
 import { useSync } from "../context/sync"
-import { Toast } from "../ui/toast"
+import { Toast, useToast } from "../ui/toast"
 import { useArgs } from "../context/args"
 import { useDirectory } from "../context/directory"
 import { useRouteData } from "@tui/context/route"
@@ -14,6 +14,7 @@ import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
+import { Flag } from "@/flag/flag"
 
 // TODO: what is the best way to do this?
 let once = false
@@ -25,6 +26,7 @@ export function Home() {
   const route = useRouteData("home")
   const promptRef = usePromptRef()
   const command = useCommandDialog()
+  const toast = useToast()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
@@ -51,6 +53,24 @@ export function Home() {
       onSelect: (dialog) => {
         kv.set("tips_hidden", !tipsHidden())
         dialog.clear()
+      },
+    },
+    {
+      title: "Toggle Autorun",
+      value: "home.autorun",
+      category: "Session",
+      hidden: false,
+      enabled: true,
+      slash: {
+        name: "autorun",
+      },
+      onSelect: (dialog) => {
+        dialog.clear()
+        toast.show({
+          message: "Start a session first to use autorun!",
+          variant: "warning",
+          duration: 3000,
+        })
       },
     },
   ])

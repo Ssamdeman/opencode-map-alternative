@@ -1,4 +1,31 @@
 {
+  "version": "0.1.7",
+  "date": "2026-03-17",
+  "focus": "OS-Aware Shell Injection",
+  "changes": [
+    "Added shell detection to SystemPrompt.environment() in system.ts: PowerShell on win32, bash otherwise.",
+    "Injected 'Shell: <type>' field into the <env> block sent to every agent on every session.",
+    "Added hard instruction after </env>: 'Always use commands compatible with the Shell above. Never use bash on Windows or PowerShell on Linux.'",
+    "Zero-code change for agents — all benefit automatically via Layer 2 environment context."
+  ]
+}
+
+
+{
+  "version": "0.1.6",
+  "date": "2026-03-17",
+  "focus": "Autorun Permission Toggle",
+  "changes": [
+    "Added OPENCODE_AUTORUN mutable flag to flag.ts, defaulting to false (safe mode).",
+    "Modified PermissionNext.evaluate() to override 'ask' actions to 'allow' when OPENCODE_AUTORUN is enabled.",
+    "Registered /autorun slash command in session route: toggles autorun on/off with a toast confirmation.",
+    "Registered /autorun on home route with a warning toast: 'Start a session first to use autorun!'.",
+    "Default behavior unchanged — user confirmation is still required unless autorun is explicitly toggled on."
+  ]
+}
+
+
+{
   "version": "0.1.5",
   "date": "2026-03-12",
   "focus": "Engagement Form UX Enhancements",

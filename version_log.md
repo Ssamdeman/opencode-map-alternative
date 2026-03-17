@@ -1,4 +1,18 @@
 {
+  "version": "0.1.8",
+  "date": "2026-03-17",
+  "focus": "OS-Aware Layer 4 Agent Prompts",
+  "changes": [
+    "Updated explorer.md: replaced flat skill list with OS-aware block matching recon.md's pattern.",
+    "Explorer now loads linux-pentest for Linux/macOS targets and powershell-windows for Windows targets, in addition to web-exploitation and ctf-methodology.",
+    "Updated coder.md: replaced flat skill list with OS-aware block.",
+    "Coder now loads scope-checker first, then linux-pentest or powershell-windows based on target OS — scripts must use correct shell syntax.",
+    "recon.md and router.md untouched per directive."
+  ]
+}
+
+
+{
   "version": "0.1.7",
   "date": "2026-03-17",
   "focus": "OS-Aware Shell Injection",

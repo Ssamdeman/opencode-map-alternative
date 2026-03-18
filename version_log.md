@@ -1,6 +1,17 @@
 
 
 {
+  "version": "0.2.1",
+  "date": "2026-03-17",
+  "focus": "findings.json Write Pipeline Fixes",
+  "changes": [
+    "recon.md: fixed write procedure to explicitly say 'using WriteTool' — now matches Explorer, Coder, Report exactly.",
+    "All four sub-agents (Recon, Explorer, Coder, Report): added WriteTool retry + fallback instruction. If WriteTool fails twice, agent reports error and finding data to Router inline."
+  ]
+}
+
+
+{
   "version": "0.2.0",
   "date": "2026-03-17",
   "focus": "Configurable Shell Timeout",

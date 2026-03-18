@@ -440,7 +440,7 @@ def main():
     # Set up and run the MCP server
     mcp = setup_mcp_server(kali_client)
     logger.info("Starting MCP Kali server")
-    mcp.run()
+    mcp.run(transport="sse")
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,23 @@
 
 
 {
+  "version": "0.2.4",
+  "date": "2026-03-18",
+  "focus": "Agent MCP Tool Awareness & Self-Discovery",
+  "changes": [
+    "All four agent prompts (Router, Recon, Explorer, Coder) now include a 'Tool Discovery (Do This First)' block before their Execution Rules section.",
+    "Agents are instructed to check for MCP tools at task start and prefer them (structured output) over BashTool (raw), with install-on-demand as last resort.",
+    "Priority order baked into all agents: MCP tool → BashTool → Install then BashTool.",
+    "Router: added MCP awareness into the planning step — factors Kali MCP tools (nmap_scan, gobuster_scan, etc.) into task assignment.",
+    "Recon: added 'For scanning and enumeration' MCP guidance — prefer nmap_scan, gobuster_scan, nikto_scan, enum4linux_scan when available.",
+    "Explorer: added 'For web probing and service interaction' guidance — prefer gobuster_scan, nikto_scan, dirb_scan, sqlmap_scan; use execute_command for arbitrary remote Kali ops.",
+    "Coder: added 'For script writing and execution' guidance — use execute_command MCP tool to run scripts on remote Kali when available.",
+    "Report: no changes — no execution, no tool awareness needed."
+  ]
+}
+
+
+{
   "version": "0.2.3",
   "date": "2026-03-18",
   "focus": "opencode.json Engagement Scaffold",

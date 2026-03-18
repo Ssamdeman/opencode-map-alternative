@@ -1,6 +1,20 @@
 
 
 {
+  "version": "0.2.2",
+  "date": "2026-03-17",
+  "focus": "Benchmark Logging Harness",
+  "changes": [
+    "New: packages/opencode/src/benchmark/benchmark.ts — singleton, in-memory state keyed by parent sessionID, fail-silent writes to .opencode/shared-resources/benchmark-log.json.",
+    "Captures: engagement start/end time, per-agent bash command count + first/last timestamps, ordered dispatch log with status, findings.json before/after snapshots per agent dispatch.",
+    "task.ts: Benchmark.dispatchStart() before agent runs, Benchmark.dispatchEnd() in existing .finally() — zero change to existing flow.",
+    "bash.ts: Benchmark.bashCommand() fires after each successful command. Child→parent sessionID resolved once and cached.",
+    "All logging is fail-silent — a write error never blocks an agent task."
+  ]
+}
+
+
+{
   "version": "0.2.1",
   "date": "2026-03-17",
   "focus": "findings.json Write Pipeline Fixes",

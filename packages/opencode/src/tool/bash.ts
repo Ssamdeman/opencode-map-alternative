@@ -18,6 +18,7 @@ import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
+import { Benchmark } from "@/benchmark/benchmark"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
@@ -210,6 +211,7 @@ export const BashTool = Tool.define("bash", async () => {
             timeoutPromise,
             abortPromise,
           ])
+          Benchmark.bashCommand(ctx.sessionID, ctx.agent ?? "unknown")
           // Debug: Get current working directory for visibility
           const debugPwd = await session.execute(
             process.platform === "win32" ? "(Get-Location).Path" : "pwd",

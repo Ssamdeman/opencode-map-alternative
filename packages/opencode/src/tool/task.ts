@@ -1,4 +1,5 @@
 import { Tool } from "./tool"
+import { Benchmark } from "@/benchmark/benchmark"
 import DESCRIPTION from "./task.txt"
 import z from "zod"
 import { Session } from "../session"
@@ -154,6 +155,8 @@ export const TaskTool = Tool.define("task", async (ctx) => {
       using _ = defer(() => ctx.abort.removeEventListener("abort", cancel))
       const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
 
+      Benchmark.dispatchStart(ctx.sessionID, params.subagent_type)
+
       const result = await SessionPrompt.prompt({
         messageID,
         sessionID: session.id,
@@ -171,6 +174,7 @@ export const TaskTool = Tool.define("task", async (ctx) => {
         parts: promptParts,
       }).finally(() => {
         unsub()
+        Benchmark.dispatchEnd(ctx.sessionID, params.subagent_type, "completed")
       })
 
       const messages = await Session.messages({ sessionID: session.id })

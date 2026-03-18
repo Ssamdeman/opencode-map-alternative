@@ -1,6 +1,20 @@
 
 
 {
+  "version": "0.2.3",
+  "date": "2026-03-18",
+  "focus": "opencode.json Engagement Scaffold",
+  "changes": [
+    "scaffold() in session.ts now writes opencode.json to the engagement root (worktree) on /engagement save.",
+    "Content: { \"mcp\": {} } — an empty MCP section ready for user-defined server configs.",
+    "Idempotent: skips write with a warning toast if opencode.json already exists (preserves user customizations).",
+    "Follows the existing fail-silent pattern (try/catch + Bus.publish toast on error).",
+    "No new imports required — uses path, fs, Bus, TuiEvent, and log already in scope."
+  ]
+}
+
+
+{
   "version": "0.2.2",
   "date": "2026-03-17",
   "focus": "Benchmark Logging Harness",

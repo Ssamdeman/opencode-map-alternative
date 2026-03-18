@@ -1317,4 +1317,18 @@ async function scaffold(worktree: string) {
       variant: "error",
     })
   }
+
+  // opencode.json — MCP stub at engagement root
+  try {
+    const opencodeJsonPath = path.join(worktree, "opencode.json")
+    if (await fs.stat(opencodeJsonPath).catch(() => false)) {
+      await Bus.publish(TuiEvent.ToastShow, { message: "opencode.json: Skipped (exists)", variant: "warning" })
+    } else {
+      await fs.writeFile(opencodeJsonPath, JSON.stringify({ mcp: {} }, null, 2))
+      await Bus.publish(TuiEvent.ToastShow, { message: "opencode.json: Scaffolded", variant: "success" })
+    }
+  } catch (error) {
+    await Bus.publish(TuiEvent.ToastShow, { message: "Failed to scaffold opencode.json", variant: "error" })
+    log.error("Failed to scaffold opencode.json", { error })
+  }
 }

@@ -167,7 +167,7 @@ export const BashTool = Tool.define("bash", async () => {
         const cdCmd = process.platform === "win32"
           ? `Set-Location "${params.workdir}"`
           : `cd "${params.workdir}"`
-        await session.execute(cdCmd)
+        await session.execute(cdCmd, timeout)
       }
 
       let output = ""
@@ -206,13 +206,14 @@ export const BashTool = Tool.define("bash", async () => {
 
         try {
           const cmdOutput = await Promise.race([
-            session.execute(params.command),
+            session.execute(params.command, timeout),
             timeoutPromise,
             abortPromise,
           ])
           // Debug: Get current working directory for visibility
           const debugPwd = await session.execute(
-            process.platform === "win32" ? "(Get-Location).Path" : "pwd"
+            process.platform === "win32" ? "(Get-Location).Path" : "pwd",
+            5000
           )
           output = `${cmdOutput}\n[MAP:DEBUG] cwd=${debugPwd.trim()}`
         } catch (error) {

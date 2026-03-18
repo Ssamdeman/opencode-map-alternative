@@ -1,6 +1,20 @@
 
 
 {
+  "version": "0.2.0",
+  "date": "2026-03-17",
+  "focus": "Configurable Shell Timeout",
+  "changes": [
+    "Added OPENCODE_SHELL_TIMEOUT flag to flag.ts (seconds, default 300). Converts to ms at read time.",
+    "ShellSession.execute() accepts optional timeoutMs parameter; falls back to Flag.OPENCODE_SHELL_TIMEOUT.",
+    "BashTool threads its resolved timeout into all session.execute() calls — cd, main command.",
+    "Debug pwd call pinned at 5s independently to avoid inheriting long pentest timeouts.",
+    "Error message now includes actual timeout value for easier debugging."
+  ]
+}
+
+
+{
   "version": "0.1.9",
   "date": "2026-03-17",
   "focus": "Shell Mode No-Session Guard",

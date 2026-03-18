@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "child_process"
 import fs from "fs"
+import { Flag } from "@/flag/flag"
 
 /**
  * ShellSession - Persistent shell session manager (Singleton)
@@ -74,7 +75,7 @@ export class ShellSession {
      * @param command - The command to execute
      * @returns Promise resolving to the command output (cleaned)
      */
-    public execute(command: string): Promise<string> {
+    public execute(command: string, timeoutMs?: number): Promise<string> {
         return new Promise((resolve, reject) => {
             // Track rejection to handle unexpected process exits mid-execution
             this.pendingReject = reject
@@ -95,9 +96,10 @@ export class ShellSession {
             }
 
             // 3. Set up timeout for safety
+            const ms = timeoutMs ?? Flag.OPENCODE_SHELL_TIMEOUT
             const timeout = setTimeout(() => {
-                reject(new Error("[ShellSession] Command timed out"))
-            }, 30000) // 30 second timeout
+                reject(new Error(`[ShellSession] Command timed out after ${ms}ms`))
+            }, ms)
 
             // 4. Poll for delimiter in buffer
             const checkInterval = setInterval(() => {

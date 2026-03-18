@@ -31,6 +31,8 @@ export namespace Flag {
 
   export let OPENCODE_AUTORUN = truthy("OPENCODE_AUTORUN")
 
+  // MAP: Default ShellSession timeout in seconds (default 300 = 5 minutes)
+  export const OPENCODE_SHELL_TIMEOUT = (number("OPENCODE_SHELL_TIMEOUT") ?? 300) * 1000
 
   // Experimental
   export const OPENCODE_EXPERIMENTAL = truthy("OPENCODE_EXPERIMENTAL")

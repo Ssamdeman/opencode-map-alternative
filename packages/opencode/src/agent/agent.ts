@@ -14,6 +14,13 @@ import PROMPT_ENGAGEMENT from "./prompt/engagement.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
+
+// Pentest native agents
+import PROMPT_ROUTER from "./prompt/router.txt"
+import PROMPT_RECON from "./prompt/recon.txt"
+import PROMPT_EXPLORER from "./prompt/explorer.txt"
+import PROMPT_CODER from "./prompt/coder.txt"
+import PROMPT_REPORT from "./prompt/report.txt"
 import { PermissionNext } from "@/permission/next"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@/global"
@@ -108,6 +115,122 @@ export namespace Agent {
           user,
         ),
         mode: "primary",
+        native: true,
+      },
+      router: {
+        name: "router",
+        description: "PenTest orchestrator. Analyzes tasks, checks scope, dispatches to specialist sub-agents.",
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            task: {
+              recon: "allow",
+              explorer: "allow",
+              coder: "allow",
+              report: "allow",
+            },
+            read: {
+              ".opencode/shared-resources/*": "allow",
+            },
+            skill: "allow",
+          }),
+          user,
+        ),
+        prompt: PROMPT_ROUTER,
+        options: {},
+        mode: "primary",
+        native: true,
+      },
+      recon: {
+        name: "recon",
+        description: "Reconnaissance and enumeration. Port scanning, service discovery, OSINT gathering. Has sudo/admin privileges on target systems.",
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            bash: "allow",
+            read: "allow",
+            write: "allow",
+            glob: "allow",
+            grep: "allow",
+            skill: "allow",
+          }),
+          user,
+        ),
+        prompt: PROMPT_RECON,
+        options: {},
+        mode: "subagent",
+        hidden: true,
+        native: true,
+      },
+      explorer: {
+        name: "explorer",
+        description: "Interactive exploration and testing. Probes services, tests hypotheses, validates findings.",
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            bash: "ask",
+            read: "allow",
+            write: "allow",
+            glob: "allow",
+            grep: "allow",
+            webfetch: "ask",
+            websearch: "allow",
+            skill: "allow",
+          }),
+          user,
+        ),
+        prompt: PROMPT_EXPLORER,
+        options: {},
+        mode: "subagent",
+        hidden: true,
+        native: true,
+      },
+      coder: {
+        name: "coder",
+        description: "Script writer and automation. Generates payloads, custom tools, exploit scripts.",
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            bash: "ask",
+            read: "allow",
+            write: "allow",
+            edit: "ask",
+            glob: "allow",
+            grep: "allow",
+            skill: "allow",
+          }),
+          user,
+        ),
+        prompt: PROMPT_CODER,
+        options: {},
+        mode: "subagent",
+        hidden: true,
+        native: true,
+      },
+      report: {
+        name: "report",
+        description: "Report generator. Summarizes findings, actions taken, and recommendations.",
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            bash: "deny",
+            read: "allow",
+            write: "allow",
+            glob: "allow",
+            grep: "allow",
+            skill: "allow",
+          }),
+          user,
+        ),
+        prompt: PROMPT_REPORT,
+        options: {},
+        mode: "subagent",
+        hidden: true,
         native: true,
       },
       general: {
@@ -215,7 +338,7 @@ export namespace Agent {
       },
     }
 
-    for (const [key, value] of Object.entries(cfg.agent ?? {})) {
+    for (const [key, value] of Object.entries(cfg.agent ?? {}) as [string, any][]) {
       if (value.disable) {
         delete result[key]
         continue

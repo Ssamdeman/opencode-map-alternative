@@ -5,10 +5,10 @@
   "date": "2026-03-19",
   "focus": "Pentest Agent Auto-Load on Clone",
   "changes": [
-    "Fixed missing agents (Router, Report, Coder, etc.) on fresh clones by auto-scoping the pentest agents directory into the runtime config loader.",
-    "Added loadPentest() step to config.ts that explicitly scans packages/opencode/src/agent/pentest/*.md unconditionally on every startup.",
-    "Load order places pentest agents as baselines (lowest precedence) so any .opencode/agent/*.md user overrides continue to win.",
-    "No manual symlinking or copying required — Router and Report now appear immediately after bun install."
+    "Converted pentest agents (Router, Recon, Explorer, Coder, Report) into fully hardcoded native agents inside agent.ts so they always load independently of the file system.",
+    "Router is now visible in the agent Tab cycle out-of-the-box on fresh clones.",
+    "Sub-agents (Recon, Explorer, Coder, Report) are native but natively hidden from the Tab cycle to keep the UI clean, while still being dispatchable by Router.",
+    "Removed the previous config.ts loadPentest() directory scoping workaround as it relied on file existence inside packages/opencode/src/agent/pentest/."
   ]
 }
 

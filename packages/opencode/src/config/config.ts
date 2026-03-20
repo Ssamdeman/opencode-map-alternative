@@ -148,6 +148,9 @@ export namespace Config {
       result.plugin.push(...(await loadPlugin(dir)))
     }
 
+    // Load built-in pentest agents (committed to repo, always available on clone)
+    result.agent = mergeDeep(result.agent, await loadPentest())
+
     // Migrate deprecated mode field to agent field
     for (const [name, mode] of Object.entries(result.mode)) {
       result.agent = mergeDeep(result.agent ?? {}, {
@@ -272,6 +275,22 @@ export namespace Config {
         continue
       }
       throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
+    }
+    return result
+  }
+
+  const PENTEST_GLOB = new Bun.Glob("*.md")
+  async function loadPentest() {
+    const dir = path.join(Instance.worktree, "packages/opencode/src/agent/pentest")
+    if (!existsSync(dir)) return {}
+    const result: Record<string, Agent> = {}
+    for await (const item of PENTEST_GLOB.scan({ absolute: true, cwd: dir })) {
+      const md = await ConfigMarkdown.parse(item).catch(() => undefined)
+      if (!md) continue
+      const name = path.basename(item, ".md")
+      const config = { name, ...md.data, prompt: md.content.trim() }
+      const parsed = Agent.safeParse(config)
+      if (parsed.success) result[name] = parsed.data
     }
     return result
   }

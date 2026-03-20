@@ -1,6 +1,19 @@
 
 
 {
+  "version": "0.2.4-BUGFIX",
+  "date": "2026-03-19",
+  "focus": "Pentest Agent Auto-Load on Clone",
+  "changes": [
+    "Fixed missing agents (Router, Report, Coder, etc.) on fresh clones by auto-scoping the pentest agents directory into the runtime config loader.",
+    "Added loadPentest() step to config.ts that explicitly scans packages/opencode/src/agent/pentest/*.md unconditionally on every startup.",
+    "Load order places pentest agents as baselines (lowest precedence) so any .opencode/agent/*.md user overrides continue to win.",
+    "No manual symlinking or copying required — Router and Report now appear immediately after bun install."
+  ]
+}
+
+
+{
   "version": "0.2.4",
   "date": "2026-03-18",
   "focus": "Agent MCP Tool Awareness & Self-Discovery",

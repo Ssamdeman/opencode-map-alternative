@@ -1,3 +1,36 @@
+{
+  "version": "0.2.6-BUGFIX",
+  "date": "2026-03-24",
+  "focus": "MCP Tool Timeout Resolution",
+  "changes": [
+    "Resolved MCP tool timeout issues (McpError -32001) for long-running pentest tools (e.g., nmap).",
+    "Documented that users can configure a custom `timeout` (in milliseconds, e.g., 300000 for 5 minutes) per MCP server in `opencode.json` to override the default 60-second limit."
+  ]
+}
+
+
+{
+  "version": "0.2.6",
+  "date": "2026-03-24",
+  "focus": "Subagent MCP Tool Execution Integration",
+  "changes": [
+    "Resolved MCP tool access blocks for subagents by updating the native permission baseline (`\"*\": \"allow\"`) for all pentest agents.",
+    "Verified full end-to-end execution capability of external MCP tools (like kali-pentest) directly within subagent processes.",
+    "Identified and documented that long-running MCP tool executions (like exhaustive nmap scans) will currently trigger strict protocol timeouts (`McpError -32001`) if they exceed 60 seconds."
+  ]
+}
+
+
+{
+  "version": "0.2.5",
+  "date": "2026-03-24",
+  "focus": "Engagement Setup Stability & UX",
+  "changes": [
+    "Added automatic scaffolding check when an engagement session is loaded in the TUI: automatically triggers setup and shows a loading animation if .opencode/shared-resources/findings.json is missing.",
+    "Fixed a silent crash in the session load by substituting Instance.worktree (backend-only context) with sync.data.path.worktree.",
+    "Corrected widespread invalid permission schemas (`\"*\": true` changed to `\"*\": allow`) in all native pentest agent templates to satisfy SDK Action schema validation."
+  ]
+}
 
 
 {

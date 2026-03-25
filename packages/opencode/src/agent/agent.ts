@@ -123,7 +123,8 @@ export namespace Agent {
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
-            "*": "deny",
+            "*": "allow",
+            "kali*": "deny",
             task: {
               recon: "allow",
               explorer: "allow",
@@ -148,7 +149,7 @@ export namespace Agent {
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
-            "*": "deny",
+            "*": "allow",
             bash: "allow",
             read: "allow",
             write: "allow",
@@ -170,7 +171,7 @@ export namespace Agent {
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
-            "*": "deny",
+            "*": "allow",
             bash: "ask",
             read: "allow",
             write: "allow",
@@ -194,7 +195,7 @@ export namespace Agent {
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
-            "*": "deny",
+            "*": "allow",
             bash: "ask",
             read: "allow",
             write: "allow",
@@ -217,7 +218,7 @@ export namespace Agent {
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
-            "*": "deny",
+            "*": "allow",
             bash: "deny",
             read: "allow",
             write: "allow",

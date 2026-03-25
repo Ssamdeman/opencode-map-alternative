@@ -75,7 +75,7 @@ import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
-import { scaffoldingSessions } from "../../state/scaffold"
+import { scaffoldingSessions, addScaffold, removeScaffold } from "../../state/scaffold"
 
 
 addDefaultParsers(parsers.parsers)
@@ -184,8 +184,32 @@ export function Session() {
   createEffect(async () => {
     await sync.session
       .sync(route.sessionID)
-      .then(() => {
+      .then(async () => {
         if (scroll) scroll.scrollBy(100_000)
+
+        const s = session() as any
+        if (s?.engagement) {
+          try {
+            const findingsPath = path.join(sync.data.path.worktree, ".opencode", "shared-resources", "findings.json")
+            const file = Bun.file(findingsPath)
+            if (!(await file.exists())) {
+              addScaffold(route.sessionID)
+              
+              const url = new URL(`session/${route.sessionID}/engagement`, sdk.url).toString()
+              const fetchFn = sdk.fetch || fetch
+              await fetchFn(url, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(s.engagement)
+              }).finally(() => {
+                  removeScaffold(route.sessionID)
+              })
+            }
+          } catch (e) {
+            console.error("Failed to check or trigger scaffold:", e)
+            removeScaffold(route.sessionID)
+          }
+        }
       })
       .catch((e) => {
         console.error(e)

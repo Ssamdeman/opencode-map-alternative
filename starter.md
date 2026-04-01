@@ -15,7 +15,8 @@ opencode.json:
     "kali-pentest": {
       "type": "remote",
       "url": "http://127.0.0.1:8000/sse",
-      "enabled": true
+      "enabled": true,
+      "timeout": 300000
     }
   }
 }

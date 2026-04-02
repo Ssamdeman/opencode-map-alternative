@@ -1,4 +1,30 @@
 {
+  "version": "0.2.8",
+  "date": "2026-04-01",
+  "focus": "Subagent shared-resources Permission Hardening",
+  "changes": [
+    "All pentest subagents (recon, explorer, coder, report) now have explicit read/write/edit allow rules scoped to .opencode/shared-resources/* — prevents permission denials when appending to findings.json.",
+    "Router: added write + edit allow for shared-resources (was read-only before).",
+    "Coder: shared-resources edit is allow while all other edit paths remain ask.",
+    "Added temporary [DIAG] log in Skill.state() to emit resolved skill paths and configDirs at runtime — marked for removal after verification."
+  ]
+}
+
+
+{
+  "version": "0.2.7",
+  "date": "2026-04-01",
+  "focus": "Scaffold copyFiles Silent-Failure Fix",
+  "changes": [
+    "Replaced the flat 2-level copyFiles() loop in scaffold() with a full copyRecursive() helper — handles arbitrary directory depth so skill subdirs with scripts/ or resources/ are never truncated.",
+    "Silent early-return on missing source dir replaced with a warning toast + log.warn showing the actual unresolved path — makes import.meta.dir resolution failures visible at runtime.",
+    "Error catch now includes sourceDir and targetDir in the log entry for full path context.",
+    "log.info emitted at the start of each copyFiles call so resolved paths appear in the dev console before any copy attempt."
+  ]
+}
+
+
+{
   "version": "0.2.6-BUGFIX",
   "date": "2026-03-24",
   "focus": "MCP Tool Timeout Resolution",

@@ -1231,11 +1231,42 @@ async function scaffold(worktree: string) {
     }
   }
 
-  // Agents
-  await copyFiles(
+  // Agents — copy only top-level .md files, NOT subdirs (skills/, tools/ are handled separately below)
+  const copyAgents = async (sourceDir: string, targetDir: string) => {
+    log.info("scaffold Agents", { sourceDir, targetDir })
+    try {
+      if (!(await fs.stat(sourceDir).catch(() => false))) {
+        log.warn("scaffold source missing — Agents skipped", { sourceDir })
+        await Bus.publish(TuiEvent.ToastShow, { message: `Agents: source not found at ${sourceDir}`, variant: "warning" })
+        return
+      }
+      await fs.mkdir(targetDir, { recursive: true })
+      const items = await fs.readdir(sourceDir)
+      let copied = 0
+      let skipped = 0
+      for (const item of items) {
+        if (!item.endsWith(".md")) continue  // only agent definition files
+        const src = path.join(sourceDir, item)
+        const dest = path.join(targetDir, item)
+        const stat = await fs.stat(src)
+        if (!stat.isFile()) continue
+        if (await fs.stat(dest).catch(() => false)) {
+          skipped++
+        } else {
+          await fs.copyFile(src, dest)
+          copied++
+        }
+      }
+      await Bus.publish(TuiEvent.ToastShow, { message: `Agents: ${copied} scaffolded, ${skipped} skipped`, variant: "success" })
+    } catch (error) {
+      await Bus.publish(TuiEvent.ToastShow, { message: "Failed to scaffold Agents", variant: "error" })
+      log.error("Failed to scaffold Agents", { error, sourceDir, targetDir })
+    }
+  }
+
+  await copyAgents(
     path.resolve(import.meta.dir, "../../agent/pentest"),
     path.join(worktree, ".opencode", "agents"),
-    "Agents",
   )
 
   // Skills

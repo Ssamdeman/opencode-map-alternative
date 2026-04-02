@@ -1,4 +1,43 @@
 {
+  "version": "0.3.1",
+  "date": "2026-04-01",
+  "focus": "Skills Appearing as Agents Bug Fix",
+  "changes": [
+    "Root cause: copyRecursive for agents pointed at the entire pentest/ source dir, which contains skills/, tools/, shared-resources/ subdirs. These landed inside .opencode/agents/. AGENT_GLOB is recursive ({agent,agents}/**/*.md) so it swept up SKILL.md files nested under agents/skills/ and registered them as agents.",
+    "Fix: replaced the agents copyFiles block with a flat-only copyAgents helper that uses readdir() and filters to .md files that are plain files — directories like skills/ and tools/ are skipped entirely.",
+    "Result: .opencode/agents/ now contains only the 5 agent definition files (router, recon, explorer, coder, report). Skills remain isolated in .opencode/skills/.",
+    "Note: existing engagements scaffolded before this fix must manually delete .opencode/agents/skills/ and .opencode/agents/tools/ to clear stale data."
+  ]
+}
+
+
+{
+  "version": "0.3.0",
+  "date": "2026-04-01",
+  "focus": "Skill Cache Invalidation After Scaffold",
+  "changes": [
+    "Root cause identified: Skill.state() is a one-time lazy cache (Instance.state). It evaluates on session init — before scaffold runs — and freezes an empty result. Agents always saw 0 skills even after .opencode/skills/ was populated.",
+    "Added State.invalidate(key, init) to state.ts: surgically deletes a single cache entry by instance key + init function reference without disturbing Config, ToolRegistry, or other state.",
+    "Added Skill.invalidate() to skill.ts: calls State.invalidate with the current Instance.directory and the skill state init ref.",
+    "scaffold() in session.ts now calls Skill.invalidate() after all file copies complete — forcing a fresh disk scan on the next skill() tool call."
+  ]
+}
+
+
+{
+  "version": "0.2.9",
+  "date": "2026-04-01",
+  "focus": "Agent Prompt Skill Invocation Sync",
+  "changes": [
+    "Audited all 5 pentest agent prompts (router, recon, explorer, coder, report) in both prompt/*.txt and pentest/*.md locations.",
+    "Router: was missing skill invocation entirely — added skill(\"scope-checker\") as step 1 of Start each task in both router.txt and router.md.",
+    "Recon: was missing scope-checker and recon-patterns from skill list — added both with explicit call order: scope-checker first, then recon-patterns, then nmap-recon, then OS-specific skill.",
+    "Explorer, Coder, Report: already correctly instructed skill loading — no changes needed."
+  ]
+}
+
+
+{
   "version": "0.2.8",
   "date": "2026-04-01",
   "focus": "Subagent shared-resources Permission Hardening",

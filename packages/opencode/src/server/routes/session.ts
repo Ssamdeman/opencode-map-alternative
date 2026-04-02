@@ -1182,54 +1182,51 @@ async function scaffold(worktree: string) {
     variant: "info",
   })
 
-  // Helper to copy files from source to target directory with checking
-  const copyFiles = async (sourceDir: string, targetDir: string, label: string) => {
-    try {
-      if (!(await fs.stat(sourceDir).catch(() => false))) {
-        return
-      }
-      await fs.mkdir(targetDir, { recursive: true })
-      const items = await fs.readdir(sourceDir)
-      let copied = 0
-      let skipped = 0
-
-      for (const item of items) {
-        const src = path.join(sourceDir, item)
-        const dest = path.join(targetDir, item)
-
-        const stat = await fs.stat(src)
-        if (stat.isDirectory()) {
-          await fs.mkdir(dest, { recursive: true })
-          const subItems = await fs.readdir(src)
-          for (const subItem of subItems) {
-            const subSrc = path.join(src, subItem)
-            const subDest = path.join(dest, subItem)
-            const subStat = await fs.stat(subSrc)
-            if (subStat.isFile()) {
-              if (await fs.stat(subDest).catch(() => false)) {
-                skipped++
-              } else {
-                await fs.copyFile(subSrc, subDest)
-                copied++
-              }
-            }
-          }
-        } else if (stat.isFile()) {
-          if (await fs.stat(dest).catch(() => false)) {
-            skipped++
-          } else {
-            await fs.copyFile(src, dest)
-            copied++
-          }
+  // Recursive copy helper — mirrors full directory trees, skips existing files
+  const copyRecursive = async (src: string, dest: string): Promise<{ copied: number; skipped: number }> => {
+    let copied = 0
+    let skipped = 0
+    await fs.mkdir(dest, { recursive: true })
+    const items = await fs.readdir(src)
+    for (const item of items) {
+      const srcItem = path.join(src, item)
+      const destItem = path.join(dest, item)
+      const stat = await fs.stat(srcItem)
+      if (stat.isDirectory()) {
+        const sub = await copyRecursive(srcItem, destItem)
+        copied += sub.copied
+        skipped += sub.skipped
+      } else if (stat.isFile()) {
+        if (await fs.stat(destItem).catch(() => false)) {
+          skipped++
+        } else {
+          await fs.copyFile(srcItem, destItem)
+          copied++
         }
       }
+    }
+    return { copied, skipped }
+  }
+
+  const copyFiles = async (sourceDir: string, targetDir: string, label: string) => {
+    log.info(`scaffold ${label}`, { sourceDir, targetDir })
+    try {
+      if (!(await fs.stat(sourceDir).catch(() => false))) {
+        log.warn(`scaffold source missing — ${label} skipped`, { sourceDir })
+        await Bus.publish(TuiEvent.ToastShow, {
+          message: `${label}: source not found at ${sourceDir}`,
+          variant: "warning",
+        })
+        return
+      }
+      const { copied, skipped } = await copyRecursive(sourceDir, targetDir)
       await Bus.publish(TuiEvent.ToastShow, {
         message: `${label}: ${copied} scaffolded, ${skipped} skipped`,
         variant: "success",
       })
     } catch (error) {
       await Bus.publish(TuiEvent.ToastShow, { message: `Failed to scaffold ${label}`, variant: "error" })
-      log.error(`Failed to scaffold ${label}`, { error })
+      log.error(`Failed to scaffold ${label}`, { error, sourceDir, targetDir })
     }
   }
 

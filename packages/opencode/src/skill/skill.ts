@@ -143,6 +143,15 @@ export namespace Skill {
       }
     }
 
+    // TEMP DIAGNOSTIC — remove after verifying skill paths at runtime
+    const entries = Object.values(skills)
+    log.info("[DIAG] skill scan complete", {
+      count: entries.length,
+      paths: entries.map((s) => s.location),
+      configDirs: await Config.directories(),
+    })
+    // END TEMP DIAGNOSTIC
+
     return skills
   })
 

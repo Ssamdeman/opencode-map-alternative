@@ -132,6 +132,15 @@ export namespace Agent {
               report: "allow",
             },
             read: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            write: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            edit: {
+              "*": "allow",
               ".opencode/shared-resources/*": "allow",
             },
             skill: "allow",
@@ -151,8 +160,18 @@ export namespace Agent {
           PermissionNext.fromConfig({
             "*": "allow",
             bash: "allow",
-            read: "allow",
-            write: "allow",
+            read: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            write: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            edit: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
             glob: "allow",
             grep: "allow",
             skill: "allow",
@@ -173,8 +192,18 @@ export namespace Agent {
           PermissionNext.fromConfig({
             "*": "allow",
             bash: "ask",
-            read: "allow",
-            write: "allow",
+            read: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            write: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            edit: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
             glob: "allow",
             grep: "allow",
             webfetch: "ask",
@@ -197,9 +226,18 @@ export namespace Agent {
           PermissionNext.fromConfig({
             "*": "allow",
             bash: "ask",
-            read: "allow",
-            write: "allow",
-            edit: "ask",
+            read: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            write: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            edit: {
+              "*": "ask",
+              ".opencode/shared-resources/*": "allow",
+            },
             glob: "allow",
             grep: "allow",
             skill: "allow",
@@ -220,8 +258,18 @@ export namespace Agent {
           PermissionNext.fromConfig({
             "*": "allow",
             bash: "deny",
-            read: "allow",
-            write: "allow",
+            read: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            write: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
+            edit: {
+              "*": "allow",
+              ".opencode/shared-resources/*": "allow",
+            },
             glob: "allow",
             grep: "allow",
             skill: "allow",

@@ -25,6 +25,7 @@ import { LLM } from "@/session/llm"
 
 import { TuiEvent } from "../../cli/cmd/tui/event"
 import { Bus } from "../../bus"
+import { Skill } from "../../skill"
 
 const log = Log.create({ service: "server" })
 
@@ -1328,4 +1329,8 @@ async function scaffold(worktree: string) {
     await Bus.publish(TuiEvent.ToastShow, { message: "Failed to scaffold opencode.json", variant: "error" })
     log.error("Failed to scaffold opencode.json", { error })
   }
+
+  // Bust the skill cache so agents see the newly scaffolded skills immediately
+  Skill.invalidate()
+  log.info("scaffold complete — skill cache invalidated")
 }

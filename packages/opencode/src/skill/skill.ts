@@ -3,6 +3,7 @@ import path from "path"
 import os from "os"
 import { Config } from "../config/config"
 import { Instance } from "../project/instance"
+import { State } from "../project/state"
 import { NamedError } from "@opencode-ai/util/error"
 import { ConfigMarkdown } from "../config/markdown"
 import { Log } from "../util/log"
@@ -161,5 +162,11 @@ export namespace Skill {
 
   export async function all() {
     return state().then((x) => Object.values(x))
+  }
+
+  // Bust the skill cache for the current instance so the next call re-scans from disk.
+  // Call this after scaffold() writes skills to .opencode/skills/.
+  export function invalidate() {
+    State.invalidate(Instance.directory, state as unknown as () => unknown)
   }
 }

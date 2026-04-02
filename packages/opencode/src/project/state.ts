@@ -28,6 +28,11 @@ export namespace State {
     }
   }
 
+  // Invalidate a single cache entry by instance key + init function reference
+  export function invalidate(key: string, init: () => unknown) {
+    recordsByKey.get(key)?.delete(init)
+  }
+
   export async function dispose(key: string) {
     const entries = recordsByKey.get(key)
     if (!entries) return

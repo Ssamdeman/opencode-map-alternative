@@ -46,7 +46,10 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { ShellSession } from "@/shell/shell-session"
+import { PtySession } from "@/shell/pty-session"
 import { Truncate } from "@/tool/truncation"
+
+const PENTEST_AGENTS = new Set(["recon", "explorer", "coder", "report"])
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -1426,8 +1429,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     }
     await Session.updatePart(part)
 
-    // MAP: Use persistent ShellSession instead of spawning new process
-    const shellSession = ShellSession.getInstance(input.sessionID)
+    // Route pentest sub-agents to PTY; all others keep the pipe-based session
+    const shellSession = PENTEST_AGENTS.has(input.agent)
+      ? PtySession.getInstance(input.sessionID)
+      : ShellSession.getInstance(input.sessionID)
     let output = ""
     let aborted = false
 

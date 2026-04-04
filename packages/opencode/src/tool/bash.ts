@@ -13,6 +13,9 @@ import { fileURLToPath } from "url"
 import { Flag } from "@/flag/flag.ts"
 import { Shell } from "@/shell/shell"
 import { ShellSession } from "@/shell/shell-session"
+import { PtySession } from "@/shell/pty-session"
+
+const PENTEST_AGENTS = new Set(["recon", "explorer", "coder", "report"])
 
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
@@ -160,16 +163,10 @@ export const BashTool = Tool.define("bash", async () => {
         })
       }
 
-      // MAP: Get persistent shell session (Phase B integration)
-      const session = ShellSession.getInstance(ctx.sessionID)
-
-      // Handle workdir change if specified
-      if (params.workdir && params.workdir !== Instance.directory) {
-        const cdCmd = process.platform === "win32"
-          ? `Set-Location "${params.workdir}"`
-          : `cd "${params.workdir}"`
-        await session.execute(cdCmd, timeout)
-      }
+      // Route pentest sub-agents to PTY; all others keep the pipe-based session
+      const session = PENTEST_AGENTS.has(ctx.agent)
+        ? PtySession.getInstance(ctx.sessionID)
+        : ShellSession.getInstance(ctx.sessionID)
 
       let output = ""
       let timedOut = false

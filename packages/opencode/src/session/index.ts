@@ -25,6 +25,7 @@ import { Global } from "@/global"
 import { Transparent } from "./transparent"
 import { SessionPromptCache } from "./prompt-cache"
 import { ShellSession } from "../shell/shell-session"
+import { PtySession } from "../shell/pty-session"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -400,8 +401,9 @@ export namespace Session {
       }
       await Storage.remove(["session", project.id, sessionID])
       
-      // Terminate any associated persistent shell session (like BashTool processes)
+      // Terminate any associated persistent shell sessions
       ShellSession.terminate(sessionID)
+      PtySession.terminate(sessionID)
 
       Bus.publish(Event.Deleted, {
         info: session,

@@ -165,7 +165,7 @@ export const BashTool = Tool.define("bash", async () => {
 
       // Route pentest sub-agents to PTY; all others keep the pipe-based session
       const session = PENTEST_AGENTS.has(ctx.agent)
-        ? PtySession.getInstance(ctx.sessionID)
+        ? PtySession.getInstance(ctx.sessionID, ctx.agent)
         : ShellSession.getInstance(ctx.sessionID)
 
       let output = ""

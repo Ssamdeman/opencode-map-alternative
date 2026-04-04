@@ -3,6 +3,7 @@ import { describeRoute, validator, resolver } from "hono-openapi"
 import { upgradeWebSocket } from "hono/bun"
 import z from "zod"
 import { Pty } from "@/pty"
+import { PtySession } from "@/shell/pty-session"
 import { Storage } from "../../storage/storage"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
@@ -165,5 +166,29 @@ export const PtyRoutes = lazy(() =>
           },
         }
       }),
+    )
+    .get(
+      "/by-session/:sessionID",
+      describeRoute({
+        summary: "Get PTY ID for sub-agent session",
+        description: "Returns the registered PTY ID for a pentest sub-agent session, or null if not yet spawned.",
+        operationId: "pty.bySession",
+        responses: {
+          200: {
+            description: "PTY ID string or null",
+            content: {
+              "application/json": {
+                schema: resolver(z.string().nullable()),
+              },
+            },
+          },
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string() })),
+      async (c) => {
+        const id = PtySession.getPtyId(c.req.valid("param").sessionID)
+        return c.json(id ?? null)
+      },
     ),
 )
+

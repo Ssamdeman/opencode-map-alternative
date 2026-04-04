@@ -4,6 +4,8 @@ import { Shell } from "@/shell/shell"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
+import { Identifier } from "@/id/id"
+import { Pty } from "@/pty"
 
 const log = Log.create({ service: "pty-session" })
 
@@ -33,11 +35,13 @@ function filterSensitive(lines: string[]) {
  *
  * Replaces ShellSession's pipe+sentinel-poll model with a real PTY and
  * PS1-based completion detection. API surface is identical to ShellSession:
- * `getInstance(sessionID)` + `execute(command, timeout?)`.
+ * `getInstance(sessionID, agent?)` + `execute(command, timeout?)`.
  *
  * Lifecycle:
  *   - Spawned lazily on first `execute()` call (via `ensureInit`)
  *   - PS1 is set to `__MAP_READY__ ` so every completed command fires the sentinel
+ *   - After init, `Pty.register()` takes over the single onData slot for WS streaming
+ *     and Bus event batching. PtySession's accumulation callback is passed to register().
  *   - Output is ANSI-stripped before being returned to the agent
  *   - Sensitive lines (password prompts) are silently excluded (Phase 4 handles UI interrupts)
  *   - Terminated via `PtySession.terminate(sessionID)` during session cleanup
@@ -49,19 +53,32 @@ export class PtySession {
   private initPromise: Promise<void> | null = null
   private buf = ""
   private executing = false
+  private registered = false   // true only after Pty.register() completes in init()
+  readonly ptyId: string
 
-  private constructor(readonly sessionID: string) {}
+  private constructor(
+    readonly sessionID: string,
+    private readonly agent?: string,
+  ) {
+    this.ptyId = Identifier.create("pty", false)
+  }
 
-  static getInstance(sessionID: string): PtySession {
+  static getInstance(sessionID: string, agent?: string): PtySession {
     const hit = PtySession.instances.get(sessionID)
     if (hit) return hit
-    const session = new PtySession(sessionID)
+    const session = new PtySession(sessionID, agent)
     PtySession.instances.set(sessionID, session)
     return session
   }
 
   static terminate(sessionID: string): void {
     PtySession.instances.get(sessionID)?.kill()
+  }
+
+  /** Returns the ptyID only after Pty.register() has been called (shell ready + in Pty.state). */
+  static getPtyId(sessionID: string): string | undefined {
+    const s = PtySession.instances.get(sessionID)
+    return s?.registered ? s.ptyId : undefined
   }
 
   private kill(): void {
@@ -97,23 +114,19 @@ export class PtySession {
 
     this.proc = spawn(cmd, [...args], { name: "xterm-256color", cwd, env })
 
-    // Single onData handler covers both init phase and execute phase.
-    // `ready` flips once the PS1 sentinel first appears, confirming the shell
-    // is up and the custom prompt is active.
+    // Phase 1: init-only onData handler — tracks the PS1 sentinel to detect shell readiness.
+    // This handler is REPLACED by Pty.register() once init completes.
     let ready = false
 
     this.proc.onData((data: string) => {
       if (!ready) {
-        // Accumulate startup noise until sentinel appears once
         this.buf += data
         if (this.buf.includes(READY)) {
           ready = true
           this.buf = "" // discard startup noise
         }
-        return
       }
-      // After init: only buffer when a command is in-flight
-      if (this.executing) this.buf += data
+      // NB: no execute-phase accumulation here — Pty.register() takes that over
     })
 
     this.proc.onExit(() => {
@@ -140,7 +153,20 @@ export class PtySession {
       }, 50)
     })
 
-    log.info("pty session ready", { sessionID: this.sessionID })
+    // Phase 2: hand the single onData slot to Pty.register().
+    // From here, Pty owns WS streaming + Bus batching.
+    // Our accumulation callback fires only while `this.executing`.
+    Pty.register(this.proc, {
+      id: this.ptyId,
+      title: `${this.agent ?? "agent"} terminal`,
+      cwd,
+      onData: (data) => {
+        if (this.executing) this.buf += data
+      },
+    })
+    this.registered = true   // ← gate: getPtyId() now returns this ID
+
+    log.info("pty session ready and registered", { sessionID: this.sessionID, ptyId: this.ptyId })
   }
 
   execute(command: string, timeoutMs?: number): Promise<string> {

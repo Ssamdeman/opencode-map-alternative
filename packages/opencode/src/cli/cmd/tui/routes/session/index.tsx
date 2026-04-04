@@ -76,9 +76,13 @@ import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 import { scaffoldingSessions, addScaffold, removeScaffold } from "../../state/scaffold"
+import { PtyTakeover } from "../../util/pty-takeover"
+import { Pty } from "@/pty"
 
 
 addDefaultParsers(parsers.parsers)
+
+const PENTEST_AGENTS = new Set(["recon", "explorer", "coder", "report"])
 
 class CustomSpeedScroll implements ScrollAcceleration {
   constructor(private speed: number) { }
@@ -258,6 +262,10 @@ export function Session() {
     if (!session()?.parentID) return
     if (keybind.match("app_exit", evt)) {
       exit()
+    }
+    // Toggle full-screen PTY access for pentest sub-agents
+    if (isPentest() && ptyID() && keybind.match("agent_terminal" as any, evt)) {
+      PtyTakeover.toggle(ptyID()!, renderer, sdk.url)
     }
   })
 
@@ -974,6 +982,45 @@ export function Session() {
   const dialog = useDialog()
   const renderer = useRenderer()
 
+  // PTY output panel — only for pentest sub-agents
+  const isPentest = createMemo(() => {
+    const s = session()
+    return !!s?.parentID && PENTEST_AGENTS.has((s as any).agent ?? "")
+  })
+  const [ptyID, setPtyID] = createSignal<string | null>(null)
+  const [ptyLines, setPtyLines] = createSignal<string[]>([])
+
+  // Poll for ptyID every 2s until we get a non-null value.
+  // The agent may not have run its first command yet (Pty.register not called) when
+  // the user visits the tab, so a one-shot fetch would return null permanently.
+  createEffect(() => {
+    if (!isPentest()) { setPtyID(null); setPtyLines([]); return }
+    if (ptyID()) return  // already resolved
+
+    const fetchPtyId = async () => {
+      const url = new URL(`pty/by-session/${route.sessionID}`, sdk.url).toString()
+      const fetchFn = sdk.fetch || fetch
+      const res = await fetchFn(url).catch(() => null)
+      if (!res) return
+      const id: string | null = await res.json().catch(() => null)
+      if (id) setPtyID(id)
+    }
+
+    fetchPtyId()
+    const poll = setInterval(fetchPtyId, 2000)
+    return () => clearInterval(poll)   // cleanup when effect re-runs or component unmounts
+  })
+
+  // Subscribe to batched pty.data Bus events for the active ptyID
+  const ANSI_STRIP = /\x1b\[[0-9;]*[mGKHFJPXABCDEFMSTh]|\x1b\][^\x07]*\x07|\r/g
+  sdk.event.on(Pty.Event.Data.type as any, (evt: any) => {
+    if (evt.properties.id !== ptyID()) return
+    const stripped = evt.properties.data.replace(ANSI_STRIP, "")
+    const lines = stripped.split("\n").filter((l: string) => l.trim())
+    if (!lines.length) return
+    setPtyLines((prev) => [...prev, ...lines].slice(-200))
+  })
+
   // snap to bottom when session changes
   createEffect(on(() => route.sessionID, toBottom))
 
@@ -1112,6 +1159,34 @@ export function Session() {
                 )}
               </For>
             </scrollbox>
+            <Show when={isPentest() && ptyID()}>
+              <box
+                flexShrink={0}
+                height={12}
+                flexDirection="column"
+                border={["top"]}
+                borderColor={theme.border}
+                paddingLeft={2}
+                paddingRight={2}
+                overflow="hidden"
+              >
+                <text fg={theme.textMuted} flexShrink={0}>
+                  ▸ terminal{" "}
+                  <span style={{ fg: theme.textMuted }}>
+                    {keybind.print("agent_terminal" as any)} enter · Ctrl+C to exit
+                  </span>
+                </text>
+                <scrollbox flexGrow={1} stickyScroll={true} stickyStart="bottom">
+                  <For each={ptyLines()}>
+                    {(line) => (
+                      <text fg={theme.text} wrapMode="none">
+                        {line}
+                      </text>
+                    )}
+                  </For>
+                </scrollbox>
+              </box>
+            </Show>
             <box flexShrink={0}>
               <Show when={permissions().length > 0}>
                 <PermissionPrompt request={permissions()[0]} />

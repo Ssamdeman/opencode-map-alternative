@@ -61,6 +61,7 @@ export namespace Pty {
     Updated: BusEvent.define("pty.updated", z.object({ info: Info })),
     Exited: BusEvent.define("pty.exited", z.object({ id: Identifier.schema("pty"), exitCode: z.number() })),
     Deleted: BusEvent.define("pty.deleted", z.object({ id: Identifier.schema("pty") })),
+    Data: BusEvent.define("pty.data", z.object({ id: Identifier.schema("pty"), data: z.string() })),
   }
 
   interface ActiveSession {
@@ -162,6 +163,68 @@ export namespace Pty {
       }
       state().delete(id)
     })
+    Bus.publish(Event.Created, { info })
+    return info
+  }
+
+  /**
+   * Register an existing IPty process into the Pty state map.
+   * Owns the single onData slot — callers must NOT register their own onData after this.
+   * Optional onData callback lets the caller still accumulate bytes (e.g. PtySession.execute() buffer).
+   */
+  export function register(
+    proc: IPty,
+    input: { id: string; title: string; cwd: string; onData?: (data: string) => void },
+  ): Info {
+    const info: Info = {
+      id: input.id,
+      title: input.title,
+      command: "pty-session",
+      args: [],
+      cwd: input.cwd,
+      status: "running",
+      pid: proc.pid,
+    }
+    const session: ActiveSession = { info, process: proc, buffer: "", subscribers: new Set() }
+
+    // 100ms batch for Bus publishing — prevents flooding on high-frequency output (nmap etc.)
+    let batch = ""
+    let batchTimer: NodeJS.Timeout | null = null
+
+    proc.onData((data) => {
+      input.onData?.(data)
+      // WS streaming
+      let open = false
+      for (const ws of session.subscribers) {
+        if (ws.readyState !== 1) { session.subscribers.delete(ws); continue }
+        open = true
+        ws.send(data)
+      }
+      if (open) return
+      session.buffer += data
+      if (session.buffer.length > BUFFER_LIMIT) session.buffer = session.buffer.slice(-BUFFER_LIMIT)
+      // Batched Bus event
+      batch += data
+      if (!batchTimer) {
+        batchTimer = setTimeout(() => {
+          const payload = batch
+          batch = ""
+          batchTimer = null
+          Bus.publish(Event.Data, { id: info.id, data: payload })
+        }, 100)
+      }
+    })
+
+    proc.onExit(({ exitCode }) => {
+      if (batchTimer) { clearTimeout(batchTimer); batchTimer = null }
+      session.info.status = "exited"
+      for (const ws of session.subscribers) ws.close()
+      session.subscribers.clear()
+      state().delete(info.id)
+      Bus.publish(Event.Exited, { id: info.id, exitCode })
+    })
+
+    state().set(info.id, session)
     Bus.publish(Event.Created, { info })
     return info
   }

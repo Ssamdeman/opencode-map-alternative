@@ -1,4 +1,30 @@
 {
+  "version": "0.3.3",
+  "date": "2026-04-06",
+  "focus": "Subagent PTY Inline Input (INCOMPLETE / UNTESTED)",
+  "changes": [
+    "Added POST /pty/:ptyID/input API route to stream text directly to a PTY session's stdin.",
+    "Added GET /pty/by-session/:sessionID API route to map sub-agent sessions to their underlying PTY instances.",
+    "Pivoted from an unsuccessful full-screen PTY takeover approach to an inline TUI input field model.",
+    "Modified TUI keyboard event handlers to route keystrokes into the new inline terminal input.",
+    "WARNING: This implementation is currently INCOMPLETE and UNTESTED. Interaction blockers may still exist preventing full bidirectional communication."
+  ]
+}
+
+
+{
+  "version": "0.3.2",
+  "date": "2026-04-06",
+  "focus": "Subagent findings.json Write Fixes",
+  "changes": [
+    "Fixed missing YAML frontmatter delimiter (---) in recon.md which caused the agent's permission ruleset to fail to load.",
+    "Added explicit path resolution notes to all 4 subagent prompts in both their .txt and .md formats.",
+    "Instructed agents to use base relative paths (e.g. .opencode/shared-resources/findings.json) without prefixing workspace subdirectories like packages/, matching WriteTool's runtime resolution behavior."
+  ]
+}
+
+
+{
   "version": "0.3.1",
   "date": "2026-04-01",
   "focus": "Skills Appearing as Agents Bug Fix",

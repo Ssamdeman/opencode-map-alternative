@@ -229,6 +229,14 @@ export namespace Pty {
     return info
   }
 
+  /** Write text directly to a PTY's stdin. Used by the TUI inline input box. */
+  export function writeInput(id: string, text: string): boolean {
+    const session = state().get(id)
+    if (!session) return false
+    session.process.write(text)
+    return true
+  }
+
   export async function update(id: string, input: UpdateInput) {
     const session = state().get(id)
     if (!session) return

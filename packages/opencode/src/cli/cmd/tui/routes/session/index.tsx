@@ -76,13 +76,12 @@ import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 import { scaffoldingSessions, addScaffold, removeScaffold } from "../../state/scaffold"
-import { PtyTakeover } from "../../util/pty-takeover"
 import { Pty } from "@/pty"
 
 
 addDefaultParsers(parsers.parsers)
 
-const PENTEST_AGENTS = new Set(["recon", "explorer", "coder", "report"])
+const PENTEST_AGENTS = new Set(["recon", "explore", "explorer", "coder", "report"])
 
 class CustomSpeedScroll implements ScrollAcceleration {
   constructor(private speed: number) { }
@@ -258,14 +257,108 @@ export function Session() {
 
   // Allow exit when in child session (prompt is hidden)
   const exit = useExit()
+
+  // PTY output panel — only for pentest sub-agents
+  // NOTE: These must be declared BEFORE useKeyboard to avoid TDZ (Temporal Dead Zone) errors.
+  const isPentest = createMemo(() => {
+    const s = session()
+    return !!s?.parentID && PENTEST_AGENTS.has((s as any).agent ?? "")
+  })
+  const [ptyID, setPtyID] = createSignal<string | null>(null)
+  const [ptyLines, setPtyLines] = createSignal<string[]>([])
+
+  // Poll for ptyID every 2s until we get a non-null value.
+  createEffect(() => {
+    if (!isPentest()) { setPtyID(null); setPtyLines([]); return }
+    if (ptyID()) return  // already resolved
+
+    const fetchPtyId = async () => {
+      const url = new URL(`pty/by-session/${route.sessionID}`, sdk.url).toString()
+      const fetchFn = sdk.fetch || fetch
+      const res = await fetchFn(url).catch(() => null)
+      if (!res) return
+      const id: string | null = await res.json().catch(() => null)
+      if (id) setPtyID(id)
+    }
+
+    fetchPtyId()
+    const poll = setInterval(fetchPtyId, 2000)
+    return () => clearInterval(poll)
+  })
+
+  // Subscribe to batched pty.data Bus events for the active ptyID
+  const ANSI_STRIP = /\x1b\[[0-9;]*[mGKHFJPXABCDEFMSTh]|\x1b\][^\x07]*\x07|\r/g
+  sdk.event.on(Pty.Event.Data.type as any, (evt: any) => {
+    if (evt.properties.id !== ptyID()) return
+    const stripped = evt.properties.data.replace(ANSI_STRIP, "")
+    const lines = stripped.split("\n").filter((l: string) => l.trim())
+    if (!lines.length) return
+    setPtyLines((prev) => [...prev, ...lines].slice(-200))
+  })
+
+  const [ptyInput, setPtyInput] = createSignal("")
+  const [ptyInputActive, setPtyInputActive] = createSignal(false)
+
+  const sendPtyInput = () => {
+    const text = ptyInput()
+    if (!text.trim()) return
+    sendRawPtyInput(text + "\n")
+    setPtyInput("")
+  }
+
+  const sendRawPtyInput = (raw: string) => {
+    const id = ptyID()
+    if (!id) return
+    const url = new URL(`pty/${id}/input`, sdk.url).toString()
+    const fetchFn = sdk.fetch || fetch
+    fetchFn(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: raw }),
+    }).catch(() => {})
+  }
+
   useKeyboard((evt) => {
+    require("fs").appendFileSync("C:\\Users\\Samue\\keylog.txt", "Key triggered: " + evt.name + "\n")
     if (!session()?.parentID) return
     if (keybind.match("app_exit", evt)) {
       exit()
+      return
     }
-    // Toggle full-screen PTY access for pentest sub-agents
-    if (isPentest() && ptyID() && keybind.match("agent_terminal" as any, evt)) {
-      PtyTakeover.toggle(ptyID()!, renderer, sdk.url)
+    // Inline PTY input mode — only when a pentest sub-agent PTY is ready
+    if (!isPentest() || !ptyID()) return
+    if (ptyInputActive()) {
+      // Escape — cancel input
+      if (evt.name === "escape") {
+        setPtyInputActive(false)
+        setPtyInput("")
+        return
+      }
+      // Enter — send text to PTY stdin and clear
+      if (evt.name === "return") {
+        sendPtyInput()
+        return
+      }
+      // Backspace
+      if (evt.name === "backspace") {
+        setPtyInput((s) => s.slice(0, -1))
+        return
+      }
+      // Ctrl+C — send interrupt to PTY (useful for killing running processes)
+      if (evt.name === "c" && evt.ctrl) {
+        sendRawPtyInput("\x03")
+        return
+      }
+      // Regular printable character
+      if (evt.name && evt.name.length === 1 && !evt.ctrl && !evt.meta) {
+        setPtyInput((s) => s + evt.name)
+        return
+      }
+    } else {
+      // Press 'i' to enter PTY input mode
+      if (evt.name === "i" && !evt.ctrl && !evt.meta) {
+        setPtyInputActive(true)
+      }
     }
   })
 
@@ -982,44 +1075,6 @@ export function Session() {
   const dialog = useDialog()
   const renderer = useRenderer()
 
-  // PTY output panel — only for pentest sub-agents
-  const isPentest = createMemo(() => {
-    const s = session()
-    return !!s?.parentID && PENTEST_AGENTS.has((s as any).agent ?? "")
-  })
-  const [ptyID, setPtyID] = createSignal<string | null>(null)
-  const [ptyLines, setPtyLines] = createSignal<string[]>([])
-
-  // Poll for ptyID every 2s until we get a non-null value.
-  // The agent may not have run its first command yet (Pty.register not called) when
-  // the user visits the tab, so a one-shot fetch would return null permanently.
-  createEffect(() => {
-    if (!isPentest()) { setPtyID(null); setPtyLines([]); return }
-    if (ptyID()) return  // already resolved
-
-    const fetchPtyId = async () => {
-      const url = new URL(`pty/by-session/${route.sessionID}`, sdk.url).toString()
-      const fetchFn = sdk.fetch || fetch
-      const res = await fetchFn(url).catch(() => null)
-      if (!res) return
-      const id: string | null = await res.json().catch(() => null)
-      if (id) setPtyID(id)
-    }
-
-    fetchPtyId()
-    const poll = setInterval(fetchPtyId, 2000)
-    return () => clearInterval(poll)   // cleanup when effect re-runs or component unmounts
-  })
-
-  // Subscribe to batched pty.data Bus events for the active ptyID
-  const ANSI_STRIP = /\x1b\[[0-9;]*[mGKHFJPXABCDEFMSTh]|\x1b\][^\x07]*\x07|\r/g
-  sdk.event.on(Pty.Event.Data.type as any, (evt: any) => {
-    if (evt.properties.id !== ptyID()) return
-    const stripped = evt.properties.data.replace(ANSI_STRIP, "")
-    const lines = stripped.split("\n").filter((l: string) => l.trim())
-    if (!lines.length) return
-    setPtyLines((prev) => [...prev, ...lines].slice(-200))
-  })
 
   // snap to bottom when session changes
   createEffect(on(() => route.sessionID, toBottom))
@@ -1162,29 +1217,54 @@ export function Session() {
             <Show when={isPentest() && ptyID()}>
               <box
                 flexShrink={0}
-                height={12}
                 flexDirection="column"
                 border={["top"]}
                 borderColor={theme.border}
-                paddingLeft={2}
-                paddingRight={2}
-                overflow="hidden"
               >
-                <text fg={theme.textMuted} flexShrink={0}>
-                  ▸ terminal{" "}
-                  <span style={{ fg: theme.textMuted }}>
-                    {keybind.print("agent_terminal" as any)} enter · Ctrl+C to exit
-                  </span>
-                </text>
-                <scrollbox flexGrow={1} stickyScroll={true} stickyStart="bottom">
-                  <For each={ptyLines()}>
-                    {(line) => (
-                      <text fg={theme.text} wrapMode="none">
-                        {line}
-                      </text>
+                {/* Output lines — 10 rows */}
+                <box
+                  height={10}
+                  flexDirection="column"
+                  paddingLeft={2}
+                  paddingRight={2}
+                  overflow="hidden"
+                >
+                  <text fg={theme.textMuted} flexShrink={0}>
+                    ▸ terminal output
+                    {!ptyInputActive() && (
+                      <span style={{ fg: theme.textMuted }}>
+                        {"  "}<span style={{ fg: theme.accent }}>i</span> to type
+                      </span>
                     )}
-                  </For>
-                </scrollbox>
+                  </text>
+                  <scrollbox flexGrow={1} stickyScroll={true} stickyStart="bottom">
+                    <For each={ptyLines()}>
+                      {(line) => (
+                        <text fg={theme.text} wrapMode="none">{line}</text>
+                      )}
+                    </For>
+                  </scrollbox>
+                </box>
+                {/* Inline input — only when active */}
+                <Show when={ptyInputActive()}>
+                  <box
+                    flexShrink={0}
+                    flexDirection="row"
+                    border={["top"]}
+                    borderColor={theme.accent}
+                    paddingLeft={2}
+                    paddingRight={2}
+                    paddingTop={0}
+                    paddingBottom={0}
+                  >
+                    <text fg={theme.accent} flexShrink={0}>{"→ "}</text>
+                    <text fg={theme.text} flexGrow={1}>
+                      {ptyInput()}
+                      <span style={{ bg: theme.accent, fg: theme.background }}>{" "}</span>
+                    </text>
+                    <text fg={theme.textMuted} flexShrink={0}>{" Enter↵  Esc cancel  ^C interrupt"}</text>
+                  </box>
+                </Show>
               </box>
             </Show>
             <box flexShrink={0}>

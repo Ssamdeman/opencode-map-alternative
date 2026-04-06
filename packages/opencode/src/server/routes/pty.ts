@@ -131,6 +131,25 @@ export const PtyRoutes = lazy(() =>
         return c.json(true)
       },
     )
+    .post(
+      "/:ptyID/input",
+      describeRoute({
+        summary: "Write input to PTY session",
+        description: "Write text to a PTY session's stdin. Used by the TUI inline input box.",
+        operationId: "pty.input",
+        responses: {
+          200: { description: "OK", content: { "application/json": { schema: resolver(z.boolean()) } } },
+          ...errors(404),
+        },
+      }),
+      validator("param", z.object({ ptyID: z.string() })),
+      validator("json", z.object({ text: z.string() })),
+      async (c) => {
+        const ok = Pty.writeInput(c.req.valid("param").ptyID, c.req.valid("json").text)
+        if (!ok) throw new Storage.NotFoundError({ message: "PTY session not found" })
+        return c.json(true)
+      },
+    )
     .get(
       "/:ptyID/connect",
       describeRoute({

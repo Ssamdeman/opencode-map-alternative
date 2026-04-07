@@ -524,7 +524,7 @@ export const SessionRoutes = lazy(() =>
         )
 
         // Auto-scaffold pentest resources
-        await scaffold(Instance.worktree)
+        await scaffold(Instance.directory)
         return c.json(true)
       },
     )

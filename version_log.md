@@ -1,4 +1,15 @@
 {
+  "version": "0.3.4",
+  "date": "2026-04-06",
+  "focus": "Compiled Binary Pentest Asset Embedding & Scaffolding Target Fix",
+  "changes": [
+    "Fixed a critical bug where pentest agent files were missing from the compiled binary because dynamic directory reads (via fs.readdir) are unaware of implicit assets. Used Bun.Glob to add src/agent/pentest/ recursively directly into Bun.build entrypoints.",
+    "Modified scaffold() invocation in session.ts from scaffold(Instance.worktree) to scaffold(Instance.directory). This guarantees that new engagements deployed in non-git directories write .opencode folders locally rather than misidentifying workspace roots."
+  ]
+}
+
+
+{
   "version": "0.3.3",
   "date": "2026-04-06",
   "focus": "Subagent PTY Inline Input (INCOMPLETE / UNTESTED)",

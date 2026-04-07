@@ -1,4 +1,17 @@
 {
+  "version": "0.3.5",
+  "date": "2026-04-07",
+  "focus": "Transparent Shell Timeout Recovery in BashTool",
+  "changes": [
+    "Added a retry loop extending the 'bash' command execution to a maximum of 5 attempts to cleanly handle timeouts transparently.",
+    "Added a 30-second delay between retry attempts for timed out commands.",
+    "Integrated a consecutive timeout tracker per 'sessionID'. When 3 consecutive timeouts occur, the current underlying 'PtySession' or 'ShellSession' is automatically killed and structurally replaced.",
+    "Injected a fallback warning metadata tag 'WARNING: Shell was reset after repeated timeouts' that alerts agents contextually without failing tasks manually."
+  ]
+}
+
+
+{
   "version": "0.3.4",
   "date": "2026-04-06",
   "focus": "Compiled Binary Pentest Asset Embedding & Scaffolding Target Fix",

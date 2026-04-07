@@ -56,7 +56,8 @@ const parser = lazy(async () => {
   return p
 })
 
-// TODO: we may wanna rename this tool so it works better on other shells
+const timeoutCounters = new Map<string, number>()
+
 export const BashTool = Tool.define("bash", async () => {
   const shell = Shell.acceptable()
   log.info("bash tool using shell", { shell })
@@ -163,14 +164,19 @@ export const BashTool = Tool.define("bash", async () => {
         })
       }
 
-      // Route pentest sub-agents to PTY; all others keep the pipe-based session
-      const session = PENTEST_AGENTS.has(ctx.agent)
+      const isPentestAgent = PENTEST_AGENTS.has(ctx.agent)
+      const getSession = () => isPentestAgent
         ? PtySession.getInstance(ctx.sessionID, ctx.agent)
         : ShellSession.getInstance(ctx.sessionID)
+        
+      const terminateSession = () => isPentestAgent
+        ? PtySession.terminate(ctx.sessionID)
+        : ShellSession.terminate(ctx.sessionID)
 
       let output = ""
       let timedOut = false
       let aborted = false
+      let wasReset = false
 
       // Initialize metadata with empty output
       ctx.metadata({
@@ -185,21 +191,31 @@ export const BashTool = Tool.define("bash", async () => {
         aborted = true
       }
 
-      if (!aborted) {
-        // Execute with timeout using Promise.race
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => {
+      let attempts = 0
+      while (attempts < 5 && !aborted) {
+        attempts++
+        timedOut = false
+        const session = getSession()
+
+        let timeoutTimer: ReturnType<typeof setTimeout>
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutTimer = setTimeout(() => {
             timedOut = true
             reject(new Error(`Command timed out after ${timeout}ms`))
           }, timeout)
-        )
+        })
 
+        let abortHandler: (() => void) | undefined
         const abortPromise = new Promise<never>((_, reject) => {
-          const handler = () => {
+          abortHandler = () => {
             aborted = true
             reject(new Error("Command aborted by user"))
           }
-          ctx.abort.addEventListener("abort", handler, { once: true })
+          if (ctx.abort.aborted) {
+            abortHandler()
+          } else {
+            ctx.abort.addEventListener("abort", abortHandler, { once: true })
+          }
         })
 
         try {
@@ -208,6 +224,7 @@ export const BashTool = Tool.define("bash", async () => {
             timeoutPromise,
             abortPromise,
           ])
+          
           Benchmark.bashCommand(ctx.sessionID, ctx.agent ?? "unknown")
           // Debug: Get current working directory for visibility
           const debugPwd = await session.execute(
@@ -215,9 +232,37 @@ export const BashTool = Tool.define("bash", async () => {
             5000
           )
           output = `${cmdOutput}\n[MAP:DEBUG] cwd=${debugPwd.trim()}`
+          
+          // Success! Reset consecutive timeout counter
+          timeoutCounters.set(ctx.sessionID, 0)
+          break
         } catch (error) {
+          if (timedOut) {
+            const count = (timeoutCounters.get(ctx.sessionID) || 0) + 1
+            timeoutCounters.set(ctx.sessionID, count)
+
+            if (attempts < 5) {
+              if (count >= 3) {
+                log.warn(`Shell reset triggered for session ${ctx.sessionID} after 3 consecutive timeouts.`)
+                terminateSession()
+                wasReset = true
+                timeoutCounters.set(ctx.sessionID, 0)
+              }
+              
+              // Wait 30 seconds before retrying
+              await new Promise((resolve) => setTimeout(resolve, 30000))
+              continue
+            }
+          }
+
           if (!timedOut && !aborted) {
             output = `Error executing command: ${error}`
+          }
+          break
+        } finally {
+          clearTimeout(timeoutTimer!)
+          if (abortHandler) {
+            ctx.abort.removeEventListener("abort", abortHandler)
           }
         }
       }
@@ -233,6 +278,10 @@ export const BashTool = Tool.define("bash", async () => {
       })
 
       const resultMetadata: string[] = []
+
+      if (wasReset) {
+        resultMetadata.push("WARNING: Shell was reset after repeated timeouts. The output below is from the retried command on a fresh shell.")
+      }
 
       if (timedOut) {
         resultMetadata.push(`bash tool terminated command after exceeding timeout ${timeout} ms`)

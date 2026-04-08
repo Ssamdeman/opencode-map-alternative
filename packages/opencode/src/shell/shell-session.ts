@@ -14,6 +14,7 @@ export class ShellSession {
     private readonly delimiter: string = "__MAP_END_SIG__"
     private pendingReject: ((reason: Error) => void) | null = null
     private readonly isWindows: boolean
+    private backgroundLog: string | null = null
 
     private constructor(public readonly sessionID: string) {
         this.isWindows = process.platform === "win32"
@@ -34,12 +35,20 @@ export class ShellSession {
 
         // Accumulate stdout into buffer
         this.process.stdout?.on("data", (data: Buffer) => {
-            this.buffer += data.toString()
+            const str = data.toString()
+            this.buffer += str
+            if (this.backgroundLog) {
+                fs.appendFileSync(this.backgroundLog, str)
+            }
         })
 
         // Also capture stderr into buffer
         this.process.stderr?.on("data", (data: Buffer) => {
-            this.buffer += data.toString()
+            const str = data.toString()
+            this.buffer += str
+            if (this.backgroundLog) {
+                fs.appendFileSync(this.backgroundLog, str)
+            }
         })
 
         this.process.on("error", (err) => {
@@ -56,7 +65,9 @@ export class ShellSession {
                 this.pendingReject(new Error(`[ShellSession] Process terminated unexpectedly with code ${code}`))
                 this.pendingReject = null
             }
-            ShellSession.instances.delete(this.sessionID)
+            if (ShellSession.instances.get(this.sessionID) === this) {
+                ShellSession.instances.delete(this.sessionID)
+            }
         })
     }
 
@@ -141,6 +152,18 @@ export class ShellSession {
                 }
             })
         })
+    }
+
+    /**
+     * Detaches the session from the sessionID mapping.
+     */
+    public detach(logPath: string): string {
+        const partial = this.buffer.split(this.delimiter)[0]
+        this.backgroundLog = logPath
+        if (ShellSession.instances.get(this.sessionID) === this) {
+            ShellSession.instances.delete(this.sessionID)
+        }
+        return partial
     }
 
     /**

@@ -1300,6 +1300,20 @@ async function scaffold(worktree: string) {
     log.error("Failed to scaffold findings", { error })
   }
 
+  // Background Tasks Log Directory
+  try {
+    const bgTasksDir = path.join(worktree, ".opencode", "shared-resources", "bg-tasks")
+    if (await fs.stat(bgTasksDir).catch(() => false)) {
+      await Bus.publish(TuiEvent.ToastShow, { message: "BG Tasks dir: Skipped (exists)", variant: "warning" })
+    } else {
+      await fs.mkdir(bgTasksDir, { recursive: true })
+      await Bus.publish(TuiEvent.ToastShow, { message: "BG Tasks dir: Scaffolded", variant: "success" })
+    }
+  } catch (error) {
+    await Bus.publish(TuiEvent.ToastShow, { message: "Failed to scaffold BG Tasks directory", variant: "error" })
+    log.error("Failed to scaffold bg-tasks", { error })
+  }
+
   // Available Models
   try {
     const sharedResourcesDir = path.join(worktree, ".opencode", "shared-resources")

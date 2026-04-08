@@ -25,6 +25,7 @@ import { Benchmark } from "@/benchmark/benchmark"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
+const PENTEST_BACKGROUND_BUDGET_MS = 30_000
 
 export const log = Log.create({ service: "bash-tool" })
 
@@ -80,6 +81,10 @@ export const BashTool = Tool.define("bash", async () => {
         .describe(
           "Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'",
         ),
+      run_in_background: z
+        .boolean()
+        .describe("If true, the command will run in the background and return a task ID immediately.")
+        .optional(),
     }),
     async execute(params, ctx) {
       const cwd = params.workdir || Instance.directory
@@ -177,6 +182,8 @@ export const BashTool = Tool.define("bash", async () => {
       let timedOut = false
       let aborted = false
       let wasReset = false
+      let backgroundTaskId: string | null = null
+      let backgroundLogPath: string | null = null
 
       // Initialize metadata with empty output
       ctx.metadata({
@@ -219,11 +226,47 @@ export const BashTool = Tool.define("bash", async () => {
         })
 
         try {
+          const budgetPromise = isPentestAgent 
+            ? new Promise<void>((resolve) => setTimeout(resolve, PENTEST_BACKGROUND_BUDGET_MS))
+            : new Promise<void>(() => {}) // Never resolves for non-pentest agents
+
+          // If explicit backgrounding is requested, detach immediately
+          if (params.run_in_background) {
+            const timestamp = Date.now()
+            const logName = `bg-${ctx.sessionID}-${timestamp}.log`
+            backgroundLogPath = path.join(Instance.directory, ".opencode", "shared-resources", "bg-tasks", logName)
+            backgroundTaskId = `task-${timestamp}`
+            
+            // Start the command
+            const cmdPromise = session.execute(params.command, timeout)
+            // Immediately detach
+            output = session.detach(backgroundLogPath)
+            
+            break // Exit the retry loop
+          }
+
           const cmdOutput = await Promise.race([
-            session.execute(params.command, timeout),
-            timeoutPromise,
-            abortPromise,
+            session.execute(params.command, timeout).then(res => ({ type: "done" as const, data: res })),
+            timeoutPromise.then(() => ({ type: "timeout" as const })),
+            abortPromise.then(() => ({ type: "abort" as const })),
+            budgetPromise.then(() => ({ type: "budget" as const })),
           ])
+
+          if (cmdOutput.type === "budget") {
+            const timestamp = Date.now()
+            const logName = `bg-${ctx.sessionID}-${timestamp}.log`
+            backgroundLogPath = path.join(Instance.directory, ".opencode", "shared-resources", "bg-tasks", logName)
+            backgroundTaskId = `task-${timestamp}`
+            
+            output = session.detach(backgroundLogPath)
+            log.info("auto-backgrounded long running command", { sessionID: ctx.sessionID, taskId: backgroundTaskId })
+            break
+          }
+
+          if (cmdOutput.type === "timeout") throw new Error(`Command timed out after ${timeout}ms`)
+          if (cmdOutput.type === "abort") throw new Error("Command aborted by user")
+          
+          const result = cmdOutput.data as string
           
           Benchmark.bashCommand(ctx.sessionID, ctx.agent ?? "unknown")
           // Debug: Get current working directory for visibility
@@ -231,7 +274,7 @@ export const BashTool = Tool.define("bash", async () => {
             process.platform === "win32" ? "(Get-Location).Path" : "pwd",
             5000
           )
-          output = `${cmdOutput}\n[MAP:DEBUG] cwd=${debugPwd.trim()}`
+          output = `${result}\n[MAP:DEBUG] cwd=${debugPwd.trim()}`
           
           // Success! Reset consecutive timeout counter
           timeoutCounters.set(ctx.sessionID, 0)
@@ -289,6 +332,16 @@ export const BashTool = Tool.define("bash", async () => {
 
       if (aborted) {
         resultMetadata.push("User aborted the command")
+      }
+
+      if (backgroundTaskId) {
+        const relLogPath = path.relative(Instance.directory, backgroundLogPath!)
+        resultMetadata.push(`Command is running in background. Task ID: ${backgroundTaskId}`)
+        resultMetadata.push(`Ongoing output is being written to: ${relLogPath}`)
+        resultMetadata.push(`Use 'bash' with 'cat ${relLogPath}' to read full output when ready.`)
+        if (isPentestAgent && !params.run_in_background) {
+          resultMetadata.push(`This command was automatically backgrounded because it exceeded the ${PENTEST_BACKGROUND_BUDGET_MS/1000}s budget.`)
+        }
       }
 
       if (resultMetadata.length > 0) {

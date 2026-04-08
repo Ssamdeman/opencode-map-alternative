@@ -1,5 +1,6 @@
 import { type IPty } from "bun-pty"
 import { lazy } from "@/util/lazy"
+import fs from "fs"
 import { Shell } from "@/shell/shell"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
@@ -55,6 +56,8 @@ export class PtySession {
   private executing = false
   private registered = false   // true only after Pty.register() completes in init()
   readonly ptyId: string
+  private backgroundLog: string | null = null
+
 
   private constructor(
     readonly sessionID: string,
@@ -85,7 +88,27 @@ export class PtySession {
     try {
       this.proc?.kill()
     } catch {}
-    PtySession.instances.delete(this.sessionID)
+    if (PtySession.instances.get(this.sessionID) === this) {
+      PtySession.instances.delete(this.sessionID)
+    }
+  }
+
+  /**
+   * Detaches the session from the sessionID mapping.
+   * The session will continue to run in the background, writing output to logPath.
+   * A fresh shell will be spawned on the next getInstance() call for this sessionID.
+   */
+  detach(logPath: string): string {
+    const partial = this.buf.split(READY)[0]
+    this.backgroundLog = logPath
+    log.info("detaching session to background", { sessionID: this.sessionID, logPath })
+    
+    // Remove from the active map so next call gets a new shell
+    if (PtySession.instances.get(this.sessionID) === this) {
+      PtySession.instances.delete(this.sessionID)
+    }
+    
+    return partial
   }
 
   private ensureInit(): Promise<void> {
@@ -161,7 +184,17 @@ export class PtySession {
       title: `${this.agent ?? "agent"} terminal`,
       cwd,
       onData: (data) => {
-        if (this.executing) this.buf += data
+        if (this.executing) {
+          this.buf += data
+          if (this.backgroundLog) {
+            // Background logging: write raw data (ANSI stripped later on read or kept for realism)
+            try {
+              fs.appendFileSync(this.backgroundLog, data)
+            } catch (e) {
+              console.error("[PtySession] Background log write failed:", e)
+            }
+          }
+        }
       },
     })
     this.registered = true   // ← gate: getPtyId() now returns this ID
@@ -191,6 +224,11 @@ export class PtySession {
         clearInterval(poll)
         this.executing = false
 
+        // If we were detaching, the promise might have already been "resolved" 
+        // by the caller (BashTool) or we resolve it here if NOT detached.
+        // Actually, BashTool handles the "return" if it calls detach.
+        // But we must stop the poll and clean up.
+
         // Everything before the sentinel is command echo + actual output
         const raw = this.buf.split(READY)[0]
         const cleaned = stripAnsi(raw)
@@ -198,6 +236,13 @@ export class PtySession {
 
         // Drop first line — it is the echoed command written to the PTY
         const output = filterSensitive(lines.slice(1)).join("\n").trim()
+        
+        // If this session was backgrounded, it's now finished.
+        if (this.backgroundLog) {
+          log.info("background session finished", { sessionID: this.sessionID })
+          this.kill()
+        }
+        
         resolve(output)
       }, 50)
 

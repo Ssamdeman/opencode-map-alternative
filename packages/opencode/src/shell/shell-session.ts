@@ -86,7 +86,7 @@ export class ShellSession {
      * @param command - The command to execute
      * @returns Promise resolving to the command output (cleaned)
      */
-    public execute(command: string, timeoutMs?: number): Promise<string> {
+    public execute(command: string, timeoutMs?: number, onProgress?: (output: string) => void, progressIntervalMs?: number): Promise<string> {
         return new Promise((resolve, reject) => {
             // Track rejection to handle unexpected process exits mid-execution
             this.pendingReject = reject
@@ -108,9 +108,13 @@ export class ShellSession {
 
             // 3. Set up timeout for safety
             const ms = timeoutMs ?? Flag.OPENCODE_SHELL_TIMEOUT
+            const progressInt = progressIntervalMs ?? 3000
+
             const timeout = setTimeout(() => {
                 reject(new Error(`[ShellSession] Command timed out after ${ms}ms`))
             }, ms)
+
+            let lastProgress = Date.now()
 
             // 4. Poll for delimiter in buffer
             const checkInterval = setInterval(() => {
@@ -133,6 +137,21 @@ export class ShellSession {
                     }
 
                     resolve(output)
+                } else if (onProgress) {
+                    const now = Date.now()
+                    if (now - lastProgress > progressInt) {
+                        lastProgress = now
+                        let partial = this.buffer.trim()
+                        if (this.isWindows) {
+                            const lines = partial.split(/\r?\n/)
+                            if (lines.length > 0 && lines[0].includes("FromBase64String")) {
+                                partial = lines.slice(1).join("\n").trim()
+                            }
+                        }
+                        if (partial) {
+                            onProgress(partial)
+                        }
+                    }
                 }
             }, 50) // Check every 50ms
 

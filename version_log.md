@@ -1,4 +1,31 @@
 {
+  "version": "0.3.9",
+  "date": "2026-04-08",
+  "focus": "Pentest Agent Prompt Tool Priority & Fallback",
+  "changes": [
+    "Synchronized a strict network tool priority directive across all 10 pentest agent prompt sources (Router, Recon, Explorer, Coder, Report) in both .md and .txt formats.",
+    "Enforced mandatory use of MCP 'kali-pentest' tools for all network-related operations (nmap, gobuster, curl, etc.) to ensure structured result parsing.",
+    "Implemented explicit fallback instructions for agents to use local OS-native commands via BashTool if the MCP server is unreachable or down.",
+    "Simplified agent decision-making by restricting BashTool primarily to local filesystem operations and text processing unless as a network fallback.",
+    "Synchronized Router planning logic to prioritize structured MCP capabilities when assigning tasks to sub-agents."
+  ]
+}
+
+
+{
+  "version": "0.3.8",
+  "date": "2026-04-08",
+  "focus": "BashTool Real-time Progress Streaming",
+  "changes": [
+    "Implemented real-time stdout streaming for BashTool tasks, allowing pentest agents to see intermediate results during long-running commands.",
+    "Integrated a throttled onProgress callback (every 3 seconds) into PtySession and ShellSession polling loops to yield partial command output.",
+    "Updated BashTool to emit 'streaming: true' metadata blocks, ensuring agent context is continuously updated without waiting for command completion or background detachment.",
+    "Synchronized partial output cleaning across Windows and Unix sessions, including ANSI stripping and sensitive prompt filtering for streamed data."
+  ]
+}
+
+
+{
   "version": "0.3.7",
   "date": "2026-04-08",
   "focus": "BashTool Command Semantics Interpretation",

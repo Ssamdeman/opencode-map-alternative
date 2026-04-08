@@ -27,6 +27,7 @@ import { interpretPentestResult } from "./command-semantics"
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
 const PENTEST_BACKGROUND_BUDGET_MS = 30_000
+const PENTEST_PROGRESS_INTERVAL_MS = 3000
 
 export const log = Log.create({ service: "bash-tool" })
 
@@ -199,6 +200,18 @@ export const BashTool = Tool.define("bash", async () => {
         aborted = true
       }
 
+      const onProgress = (partial: string) => {
+        ctx.metadata({
+          metadata: {
+            output: partial.length > MAX_METADATA_LENGTH
+              ? partial.slice(0, MAX_METADATA_LENGTH) + "\n\n... (streaming)"
+              : partial + "\n\n... (streaming)",
+            description: params.description,
+            streaming: true,
+          },
+        })
+      }
+
       let attempts = 0
       while (attempts < 5 && !aborted) {
         attempts++
@@ -239,7 +252,12 @@ export const BashTool = Tool.define("bash", async () => {
             backgroundTaskId = `task-${timestamp}`
             
             // Start the command
-            const cmdPromise = session.execute(params.command, timeout)
+            const cmdPromise = session.execute(
+              params.command, 
+              timeout, 
+              isPentestAgent ? onProgress : undefined, 
+              PENTEST_PROGRESS_INTERVAL_MS
+            )
             // Immediately detach
             output = session.detach(backgroundLogPath)
             
@@ -247,7 +265,12 @@ export const BashTool = Tool.define("bash", async () => {
           }
 
           const cmdOutput = await Promise.race([
-            session.execute(params.command, timeout).then(res => ({ type: "done" as const, data: res })),
+            session.execute(
+              params.command, 
+              timeout, 
+              isPentestAgent ? onProgress : undefined, 
+              PENTEST_PROGRESS_INTERVAL_MS
+            ).then(res => ({ type: "done" as const, data: res })),
             timeoutPromise.then(() => ({ type: "timeout" as const })),
             abortPromise.then(() => ({ type: "abort" as const })),
             budgetPromise.then(() => ({ type: "budget" as const })),

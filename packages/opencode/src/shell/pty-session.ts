@@ -202,24 +202,42 @@ export class PtySession {
     log.info("pty session ready and registered", { sessionID: this.sessionID, ptyId: this.ptyId })
   }
 
-  execute(command: string, timeoutMs?: number): Promise<string> {
-    return this.ensureInit().then(() => this.run(command, timeoutMs))
+  execute(command: string, timeoutMs?: number, onProgress?: (output: string) => void, progressIntervalMs?: number): Promise<string> {
+    return this.ensureInit().then(() => this.run(command, timeoutMs, onProgress, progressIntervalMs))
   }
 
-  private run(command: string, timeoutMs?: number): Promise<string> {
+  private run(command: string, timeoutMs?: number, onProgress?: (output: string) => void, progressIntervalMs?: number): Promise<string> {
     return new Promise((resolve, reject) => {
       this.buf = ""
       this.executing = true
 
       const ms = timeoutMs ?? Flag.OPENCODE_SHELL_TIMEOUT
+      const progressInt = progressIntervalMs ?? 3000
 
       const timer = setTimeout(() => {
         this.executing = false
         reject(new Error(`[PtySession] command timed out after ${ms}ms`))
       }, ms)
 
+      let lastProgress = Date.now()
+
       const poll = setInterval(() => {
-        if (!this.buf.includes(READY)) return
+        if (!this.buf.includes(READY)) {
+          if (onProgress) {
+            const now = Date.now()
+            if (now - lastProgress > progressInt) {
+              lastProgress = now
+              const raw = this.buf
+              const cleaned = stripAnsi(raw)
+              const lines = cleaned.split("\n")
+              const partial = filterSensitive(lines.slice(1)).join("\n").trim()
+              if (partial) {
+                onProgress(partial)
+              }
+            }
+          }
+          return
+        }
         clearTimeout(timer)
         clearInterval(poll)
         this.executing = false

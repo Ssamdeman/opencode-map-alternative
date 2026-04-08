@@ -1,4 +1,19 @@
 {
+  "version": "0.3.6",
+  "date": "2026-04-08",
+  "focus": "BashTool Proactive Background Execution",
+  "changes": [
+    "Implemented non-blocking background execution for long-running pentest commands via a new 'run_in_background' parameter in BashTool.",
+    "Integrated a 30-second 'PENTEST_BACKGROUND_BUDGET' that automatically detaches commands if they exceed the time threshold, preventing agent blocking during recon/scanning.",
+    "Refactored PtySession and ShellSession with a .detach() mechanism that orphans time-intensive tasks while immediately spawning fresh, interactive sessions for continued agent work.",
+    "Added persistent background logging to '.opencode/shared-resources/bg-tasks/' with timestamps and session tracking.",
+    "Updated all 5 pentest agent prompts (Router, Recon, Explorer, Coder, Report) in both .md and .txt formats with bg-task monitoring and orchestration logic.",
+    "Hardened Router logic to track background tasks log paths and verify completion status before proceeding with dependent plan steps."
+  ]
+}
+
+
+{
   "version": "0.3.5",
   "date": "2026-04-07",
   "focus": "Transparent Shell Timeout Recovery in BashTool",

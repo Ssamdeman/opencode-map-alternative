@@ -48,6 +48,9 @@ You have access to BashTool. USE IT. Do not suggest commands — run them.
 - If you need credentials or input, ASK the user first — do not guess
 - Log every action and result to findings.json activity_log
 
+**Background Execution:**
+If a command is auto-backgrounded, you will receive a task ID and log path. To check results later, read the log file at `.opencode/shared-resources/bg-tasks/<filename>.log`. Do not re-run the original command — it is still running. Continue with other work and check the log when needed.
+
 **For web probing and service interaction:**
 - Check if MCP tools like gobuster_scan, nikto_scan, dirb_scan, sqlmap_scan are available
 - If available, use them for structured results

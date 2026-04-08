@@ -1,4 +1,17 @@
 {
+  "version": "0.3.7",
+  "date": "2026-04-08",
+  "focus": "BashTool Command Semantics Interpretation",
+  "changes": [
+    "Created a new 'command-semantics.ts' module to intelligently interpret pentest tool output, distinguishing between genuine failures and expected non-zero exits (e.g., grep finding no matches).",
+    "Transitioned from strict numerical exit-code-only evaluations to stdout content analysis; tools producing meaningful payload data are now frequently pardoned despite non-zero exit codes.",
+    "Integrated semantic logic into BashTool specifically for pentest agents, suppressing 'Exit code: N' UI spam on expected behaviors to eliminate false-positive agent retries.",
+    "Added a new 'isExpectedExit' boolean metadata flag to tool output payloads without overwriting the native integer 'exit' code."
+  ]
+}
+
+
+{
   "version": "0.3.6",
   "date": "2026-04-08",
   "focus": "BashTool Proactive Background Execution",

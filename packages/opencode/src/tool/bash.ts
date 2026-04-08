@@ -22,6 +22,7 @@ import { Truncate } from "./truncation"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import { Benchmark } from "@/benchmark/benchmark"
+import { interpretPentestResult } from "./command-semantics"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
@@ -344,6 +345,28 @@ export const BashTool = Tool.define("bash", async () => {
         }
       }
 
+      let caughtExitCode = timedOut || aborted ? 1 : 0
+      if (output.startsWith("Error executing command:")) {
+        caughtExitCode = 1 // default to non-zero on error catch
+      }
+
+      let isExpectedExit = false
+
+      if (isPentestAgent) {
+        const semantics = interpretPentestResult(params.command, caughtExitCode, output)
+        isExpectedExit = !semantics.isError
+
+        if (!semantics.isError) {
+          if (semantics.message) {
+            resultMetadata.push(`Semantics: ${semantics.message}`)
+          }
+        } else if (caughtExitCode !== 0) {
+          resultMetadata.push(`Exit code: ${caughtExitCode}`)
+        }
+      } else if (caughtExitCode !== 0) {
+        resultMetadata.push(`Exit code: ${caughtExitCode}`)
+      }
+
       if (resultMetadata.length > 0) {
         output += "\n\n<bash_metadata>\n" + resultMetadata.join("\n") + "\n</bash_metadata>"
       }
@@ -352,7 +375,8 @@ export const BashTool = Tool.define("bash", async () => {
         title: params.description,
         metadata: {
           output: output.length > MAX_METADATA_LENGTH ? output.slice(0, MAX_METADATA_LENGTH) + "\n\n..." : output,
-          exit: timedOut || aborted ? 1 : 0,
+          exit: caughtExitCode,
+          isExpectedExit,
           description: params.description,
         },
         output,

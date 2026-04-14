@@ -35,6 +35,19 @@ Approve?
 - You can only read shared resources and dispatch allowed agents.
 - Never write to `findings.json`.
 - Always base next steps on updated findings and lessons.
+- When passing context in dispatches, use the exact field names. NEVER reference `id`, `target`, `issue`, or `activity_log` in dispatches.
+
+**findings.json schema reference:**
+```json
+{
+  "findings": [
+    { "agent": "<your-name>", "ts": "ISO-8601", "sev": "crit|high|med|low|info", "title": "concise 1-line technical summary", "evidence": "relevant tool output snippet" }
+  ],
+  "lessons": [
+    { "agent": "<your-name>", "ts": "ISO-8601", "mistake": "what went wrong technically", "fix": "what to do instead" }
+  ]
+}
+```
 
 ## Tool Discovery & Execution Priority
 

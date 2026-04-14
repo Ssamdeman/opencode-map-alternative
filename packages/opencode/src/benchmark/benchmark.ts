@@ -18,8 +18,6 @@ interface Dispatch {
   startTime: string
   endTime?: string
   status: "completed" | "error" | "in-progress"
-  findingsBefore?: string
-  findingsAfter?: string
 }
 
 interface EngagementBench {
@@ -35,10 +33,6 @@ function sharedDir() {
 
 function benchPath() {
   return path.join(sharedDir(), "benchmark-log.json")
-}
-
-function findingsPath() {
-  return path.join(sharedDir(), "findings.json")
 }
 
 function ensure(parentSessionID: string) {
@@ -63,18 +57,6 @@ async function flush(parentSessionID: string) {
   }
 }
 
-async function snapshotFindings(name: string) {
-  try {
-    const src = Bun.file(findingsPath())
-    const dest = path.join(sharedDir(), name)
-    const content = await src.text()
-    await Bun.write(dest, content)
-    return name
-  } catch {
-    return undefined
-  }
-}
-
 async function resolveParent(sessionID: string): Promise<string | undefined> {
   if (parentCache.has(sessionID)) return parentCache.get(sessionID)
   try {
@@ -93,17 +75,13 @@ export namespace Benchmark {
       const bench = ensure(parentSessionID)
       if (!bench.agents[agent]) bench.agents[agent] = { bashCommands: 0 }
 
-      const snapshot = `findings-before-${agent}.json`
-      snapshotFindings(snapshot).then((name) => {
-        const dispatch: Dispatch = {
-          agent,
-          startTime: new Date().toISOString(),
-          status: "in-progress",
-          findingsBefore: name,
-        }
-        bench.dispatches.push(dispatch)
-        flush(parentSessionID)
-      })
+      const dispatch: Dispatch = {
+        agent,
+        startTime: new Date().toISOString(),
+        status: "in-progress",
+      }
+      bench.dispatches.push(dispatch)
+      flush(parentSessionID)
     } catch {
       // fail silent
     }
@@ -119,13 +97,9 @@ export namespace Benchmark {
       const endTime = new Date().toISOString()
       bench.engagementEnd = endTime
 
-      const snapshot = `findings-after-${agent}.json`
-      snapshotFindings(snapshot).then((name) => {
-        dispatch.endTime = endTime
-        dispatch.status = status
-        dispatch.findingsAfter = name
-        flush(parentSessionID)
-      })
+      dispatch.endTime = endTime
+      dispatch.status = status
+      flush(parentSessionID)
     } catch {
       // fail silent
     }

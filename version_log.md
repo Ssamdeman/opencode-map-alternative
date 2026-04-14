@@ -1,4 +1,14 @@
 {
+  "version": "0.4.1",
+  "date": "2026-04-14",
+  "focus": "Benchmark Findings Snapshot Removal",
+  "changes": [
+    "Removed the findings.json snapshot tracking mechanism (findings-before-*.json / findings-after-*.json) from benchmark.ts."
+  ]
+}
+
+
+{
   "version": "0.4.0",
   "date": "2026-04-09",
   "focus": "AI Engagement Auto-Fill Hardening",

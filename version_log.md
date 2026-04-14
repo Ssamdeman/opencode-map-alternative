@@ -1,4 +1,17 @@
 {
+  "version": "0.4.4",
+  "date": "2026-04-14",
+  "focus": "findings.json Schema Migration & Sub-agent Lesson Tracking",
+  "changes": [
+    "Updated scaffolded findings.json template to use '{ \"findings\": [], \"lessons\": [] }', completely removing the legacy engagement object and activity_log array.",
+    "Updated all 8 pentest sub-agent prompts (recon, explorer, coder, report in .txt and .md) to discard activity_log and instead append to 'lessons[]' for tracking mistakes and fixes.",
+    "Restructured agent prompt instructions to append findings continuously during long-running tasks and limited schema output length to 1-2 lines of technical essence.",
+    "Updated the Router orchestration prompt to read and evaluate 'lessons[]' alongside findings, uniquely passing relevant lessons downward during sub-agent dispatch so they do not repeat past mistakes."
+  ]
+}
+
+
+{
   "version": "0.4.3",
   "date": "2026-04-14",
   "focus": "Pentest Sub-agent Strict Dispatch & Prompt NLP Standardization",

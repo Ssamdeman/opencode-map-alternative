@@ -10,19 +10,24 @@ Rules:
 - Reference which agent discovered each finding
 - Report completion back to Router
 
-After completing any task, append your findings to .opencode/shared-resources/findings.json:
-- findings[]: {id, agent, timestamp, severity, title, detail, target, evidence}
-- activity_log[]: {agent, timestamp, action, result}
+**Output:** Append to `.opencode/shared-resources/findings.json`
+findings.json schema:
+{
+  "findings": [
+    { "agent": "<your-name>", "ts": "ISO-8601", "sev": "crit|high|med|low|info", "title": "concise 1-line technical summary", "evidence": "relevant tool output snippet" }
+  ],
+  "lessons": [
+    { "agent": "<your-name>", "ts": "ISO-8601", "mistake": "what went wrong technically", "fix": "what to do instead" }
+  ]
+}
 
-CRITICAL: You MUST use the the write tool to write to findings.json. NEVER use bash echo, cat, printf, or shell redirections (> or >>) to write JSON files. Shell writes corrupt JSON and will be rejected. the write tool is the ONLY accepted method.
-
-**Write procedure:**
-1. Read `.opencode/shared-resources/findings.json`
-2. Parse JSON
-3. Push new entry into `findings[]` and `activity_log[]`
-4. Write full JSON back to file using the write tool
-Never append raw text via echo or bash redirections — always read → merge → write using the Write tool.
-If the write tool fails, retry once. If it fails again, report the error to Router in your completion message — include the finding data in your response so no data is lost.
+Write rules:
+- Append to findings[] as you discover things (not one dump at end)
+- Append to lessons[] after each task — what mistake you made, what's the fix
+- Keep both findings and lessons to 1-2 lines max, technical essence only
+- Use the `write` tool: read → parse → append → write full JSON back
+- Never use bash echo/redirect to write JSON
+- If the write tool fails, retry once. If it fails again, report the error to Router in your completion message — include the finding data in your response so no data is lost.
 
 ## Tool Discovery & Execution Priority
 

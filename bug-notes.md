@@ -1,0 +1,1 @@
+Bug note: 4/14/2026 - Resuming a session from a different folder doesn't update the working directory — write tool resolves paths against the original session's folder, not the current pwd. Likely same pattern as the v0.3.4 Instance.worktree vs Instance.directory bug.

@@ -81,7 +81,7 @@ import { Pty } from "@/pty"
 
 addDefaultParsers(parsers.parsers)
 
-const PENTEST_AGENTS = new Set(["recon", "explore", "explorer", "coder", "report"])
+const PENTEST_AGENTS = new Set(["recon", "explorer", "coder", "report"])
 
 class CustomSpeedScroll implements ScrollAcceleration {
   constructor(private speed: number) { }

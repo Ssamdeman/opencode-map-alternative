@@ -1,4 +1,17 @@
 {
+  "version": "0.4.3",
+  "date": "2026-04-14",
+  "focus": "Pentest Sub-agent Strict Dispatch & Prompt NLP Standardization",
+  "changes": [
+    "Replaced string literal 'WriteTool' with natural language 'the write tool' across all 8 sub-agent prompts (.txt and .md) to standardize phrasing and reduce JSON schema confusion.",
+    "Completely excised the legacy 'explore' agent (codebase search agent) from routing dispatch.",
+    "Removed 'explore' native agent definition from agent.ts and updated TUI prompt dialog configurations.",
+    "Hardened Router prompt rules to explicitly ban dispatching to 'general' or 'explore', tightly scoping execution solely to 'recon', 'explorer', 'coder', and 'report'."
+  ]
+}
+
+
+{
   "version": "0.4.2",
   "date": "2026-04-14",
   "focus": "Agent Infrastructure Output Hardening",

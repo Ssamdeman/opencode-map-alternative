@@ -18,7 +18,7 @@ import PROMPT_CODEX from "@/session/prompt/codex_header.txt"
 import PROMPT_TITLE from "@/agent/prompt/title.txt"
 import PROMPT_SUMMARY from "@/agent/prompt/summary.txt"
 import PROMPT_COMPACTION from "@/agent/prompt/compaction.txt"
-import PROMPT_EXPLORE from "@/agent/prompt/explore.txt"
+
 
 export type DialogPromptsProps = {}
 
@@ -191,7 +191,7 @@ export function DialogPrompts() {
             { name: "Title Generator", content: PROMPT_TITLE, source: "agent/prompt/title.txt", key: "title" },
             { name: "Summary Generator", content: PROMPT_SUMMARY, source: "agent/prompt/summary.txt", key: "summary" },
             { name: "Compaction", content: PROMPT_COMPACTION, source: "agent/prompt/compaction.txt", key: "compaction" },
-            { name: "Explore", content: PROMPT_EXPLORE, source: "agent/prompt/explore.txt", key: "explore" },
+
         ] as const
 
         for (const ap of agentPrompts) {

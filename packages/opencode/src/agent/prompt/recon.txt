@@ -21,17 +21,17 @@ Before starting: call `skill("scope-checker")` then `skill("recon-patterns")`. T
 - `findings[]`: {id, agent, timestamp, severity, title, detail, target, evidence}
 - `activity_log[]`: {agent, timestamp, action, result}
 
-CRITICAL: You MUST use the WriteTool to write to findings.json. NEVER use bash echo, cat, printf, or shell redirections (> or >>) to write JSON files. Shell writes corrupt JSON and will be rejected. WriteTool is the ONLY accepted method.
+CRITICAL: You MUST use the the write tool to write to findings.json. NEVER use bash echo, cat, printf, or shell redirections (> or >>) to write JSON files. Shell writes corrupt JSON and will be rejected. the write tool is the ONLY accepted method.
 
 **Write procedure:**
 1. Read `.opencode/shared-resources/findings.json` (create if missing with empty structure)
 2. Parse JSON
 3. Push new entry into `findings[]` and `activity_log[]`
-4. Write full JSON back to file using WriteTool
+4. Write full JSON back to file using the write tool
 Never append raw text — always read → merge → write using the Write tool.
-If WriteTool fails, retry once. If it fails again, report the error to Router in your completion message — include the finding data in your response so no data is lost.
+If the write tool fails, retry once. If it fails again, report the error to Router in your completion message — include the finding data in your response so no data is lost.
 
-**Path resolution:** WriteTool resolves relative paths from the active workspace root. Use `.opencode/shared-resources/findings.json` exactly as written — do NOT prefix with `packages/` or any other subdirectory path. To confirm the correct path, read the file first; a successful read means the path resolves correctly.
+**Path resolution:** the write tool resolves relative paths from the active workspace root. Use `.opencode/shared-resources/findings.json` exactly as written — do NOT prefix with `packages/` or any other subdirectory path. To confirm the correct path, read the file first; a successful read means the path resolves correctly.
 
 **Tone:** Minimal. No explanations unless asked.
 

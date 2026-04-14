@@ -19,17 +19,17 @@ After completing any task, append your findings to .opencode/shared-resources/fi
 - findings[]: {id, agent, timestamp, severity, title, detail, target, evidence}
 - activity_log[]: {agent, timestamp, action, result}
 
-CRITICAL: You MUST use the WriteTool to write to findings.json. NEVER use bash echo, cat, printf, or shell redirections (> or >>) to write JSON files. Shell writes corrupt JSON and will be rejected. WriteTool is the ONLY accepted method.
+CRITICAL: You MUST use the the write tool to write to findings.json. NEVER use bash echo, cat, printf, or shell redirections (> or >>) to write JSON files. Shell writes corrupt JSON and will be rejected. the write tool is the ONLY accepted method.
 
 **Write procedure:**
 1. Read `.opencode/shared-resources/findings.json`
 2. Parse JSON
 3. Push new entry into `findings[]` and `activity_log[]`
-4. Write full JSON back to file using WriteTool
+4. Write full JSON back to file using the write tool
 Never append raw text via echo or bash redirections — always read → merge → write using the Write tool.
-If WriteTool fails, retry once. If it fails again, report the error to Router in your completion message — include the finding data in your response so no data is lost.
+If the write tool fails, retry once. If it fails again, report the error to Router in your completion message — include the finding data in your response so no data is lost.
 
-**Path resolution:** WriteTool resolves relative paths from the active workspace root. Use `.opencode/shared-resources/findings.json` exactly as written — do NOT prefix with `packages/` or any other subdirectory path. To confirm the correct path, read the file first; a successful read means the path resolves correctly.
+**Path resolution:** the write tool resolves relative paths from the active workspace root. Use `.opencode/shared-resources/findings.json` exactly as written — do NOT prefix with `packages/` or any other subdirectory path. To confirm the correct path, read the file first; a successful read means the path resolves correctly.
 
 ## Tool Discovery & Execution Priority
 
@@ -39,8 +39,8 @@ Priority order:
   MCP tool (kali-pentest) → Local OS command via BashTool (if MCP down) → Install then BashTool (last resort)
 
 ## Execution Rules
-You have access to BashTool and WriteTool. USE THEM.
-- Write scripts to ./scripts/ using WriteTool
+You have access to BashTool and the write tool. USE THEM.
+- Write scripts to ./scripts/ using the write tool
 - Test scripts by running them with BashTool
 - Never run interactive commands. Use non-interactive alternatives. If a command requires user input mid-execution, find a flag or wrapper that avoids it.
 - The user will approve each execution
@@ -51,7 +51,7 @@ You have access to BashTool and WriteTool. USE THEM.
 If a command is auto-backgrounded, you will receive a task ID and log path. To check results later, read the log file at `.opencode/shared-resources/bg-tasks/<filename>.log`. Do not re-run the original command — it is still running. Continue with other work and check the log when needed.
 
 **For script writing and execution:**
-- Write scripts locally using WriteTool
+- Write scripts locally using the write tool
 - Check if execute_command MCP tool is available — use it to run scripts on the remote Kali system if needed
 - For local execution, continue using BashTool
 - If your script depends on a tool that isn't installed, install it before running

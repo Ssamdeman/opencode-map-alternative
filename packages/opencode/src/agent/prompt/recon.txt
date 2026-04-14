@@ -21,6 +21,8 @@ Before starting: call `skill("scope-checker")` then `skill("recon-patterns")`. T
 - `findings[]`: {id, agent, timestamp, severity, title, detail, target, evidence}
 - `activity_log[]`: {agent, timestamp, action, result}
 
+CRITICAL: You MUST use the WriteTool to write to findings.json. NEVER use bash echo, cat, printf, or shell redirections (> or >>) to write JSON files. Shell writes corrupt JSON and will be rejected. WriteTool is the ONLY accepted method.
+
 **Write procedure:**
 1. Read `.opencode/shared-resources/findings.json` (create if missing with empty structure)
 2. Parse JSON

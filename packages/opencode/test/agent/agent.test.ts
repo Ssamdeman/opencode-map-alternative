@@ -19,7 +19,6 @@ test("returns default native agents when no config", async () => {
       const names = agents.map((a) => a.name)
       expect(names).toContain("build")
       expect(names).toContain("plan")
-      expect(names).toContain("general")
       expect(names).toContain("explore")
       expect(names).toContain("compaction")
       expect(names).toContain("title")
@@ -74,20 +73,6 @@ test("explore agent denies edit and write", async () => {
   })
 })
 
-test("general agent denies todo tools", async () => {
-  await using tmp = await tmpdir()
-  await Instance.provide({
-    directory: tmp.path,
-    fn: async () => {
-      const general = await Agent.get("general")
-      expect(general).toBeDefined()
-      expect(general?.mode).toBe("subagent")
-      expect(general?.hidden).toBeUndefined()
-      expect(evalPerm(general, "todoread")).toBe("deny")
-      expect(evalPerm(general, "todowrite")).toBe("deny")
-    },
-  })
-})
 
 test("compaction agent denies all permissions", async () => {
   await using tmp = await tmpdir()

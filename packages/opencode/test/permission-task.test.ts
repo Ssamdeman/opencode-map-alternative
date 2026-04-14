@@ -35,7 +35,7 @@ describe("PermissionNext.evaluate for permission.task", () => {
     const ruleset = createRuleset({ "orchestrator-*": "deny" })
     expect(PermissionNext.evaluate("task", "orchestrator-fast", ruleset).action).toBe("deny")
     expect(PermissionNext.evaluate("task", "orchestrator-slow", ruleset).action).toBe("deny")
-    expect(PermissionNext.evaluate("task", "general", ruleset).action).toBe("ask")
+    expect(PermissionNext.evaluate("task", "recon", ruleset).action).toBe("ask")
   })
 
   test("matches wildcard patterns with allow", () => {
@@ -111,7 +111,7 @@ describe("PermissionNext.disabled for task tool", () => {
     // Specific subagent denies don't disable the task tool - those are handled at runtime
     const ruleset = createRuleset({
       "orchestrator-*": "deny",
-      general: "deny",
+      recon: "deny",
     })
     const disabled = PermissionNext.disabled(["task"], ruleset)
     // The task tool is NOT disabled because no rule has pattern: "*" with action: "deny"
@@ -156,8 +156,8 @@ describe("permission.task with real config files", () => {
       fn: async () => {
         const config = await Config.get()
         const ruleset = PermissionNext.fromConfig(config.permission ?? {})
-        // general and orchestrator-fast should be allowed, code-reviewer denied
-        expect(PermissionNext.evaluate("task", "general", ruleset).action).toBe("allow")
+        // recon and orchestrator-fast should be allowed, code-reviewer denied
+        expect(PermissionNext.evaluate("task", "recon", ruleset).action).toBe("allow")
         expect(PermissionNext.evaluate("task", "orchestrator-fast", ruleset).action).toBe("allow")
         expect(PermissionNext.evaluate("task", "code-reviewer", ruleset).action).toBe("deny")
       },
@@ -181,8 +181,8 @@ describe("permission.task with real config files", () => {
       fn: async () => {
         const config = await Config.get()
         const ruleset = PermissionNext.fromConfig(config.permission ?? {})
-        // general and code-reviewer should be ask, orchestrator-* denied
-        expect(PermissionNext.evaluate("task", "general", ruleset).action).toBe("ask")
+        // recon and code-reviewer should be ask, orchestrator-* denied
+        expect(PermissionNext.evaluate("task", "recon", ruleset).action).toBe("ask")
         expect(PermissionNext.evaluate("task", "code-reviewer", ruleset).action).toBe("ask")
         expect(PermissionNext.evaluate("task", "orchestrator-fast", ruleset).action).toBe("deny")
       },
@@ -195,7 +195,7 @@ describe("permission.task with real config files", () => {
       config: {
         permission: {
           task: {
-            general: "allow",
+            recon: "allow",
             "code-reviewer": "deny",
           },
         },
@@ -206,7 +206,7 @@ describe("permission.task with real config files", () => {
       fn: async () => {
         const config = await Config.get()
         const ruleset = PermissionNext.fromConfig(config.permission ?? {})
-        expect(PermissionNext.evaluate("task", "general", ruleset).action).toBe("allow")
+        expect(PermissionNext.evaluate("task", "recon", ruleset).action).toBe("allow")
         expect(PermissionNext.evaluate("task", "code-reviewer", ruleset).action).toBe("deny")
         // Unspecified agents default to "ask"
         expect(PermissionNext.evaluate("task", "unknown-agent", ruleset).action).toBe("ask")
@@ -223,7 +223,7 @@ describe("permission.task with real config files", () => {
           edit: "ask",
           task: {
             "*": "deny",
-            general: "allow",
+            recon: "allow",
           },
         },
       },
@@ -235,7 +235,7 @@ describe("permission.task with real config files", () => {
         const ruleset = PermissionNext.fromConfig(config.permission ?? {})
 
         // Verify task permissions
-        expect(PermissionNext.evaluate("task", "general", ruleset).action).toBe("allow")
+        expect(PermissionNext.evaluate("task", "recon", ruleset).action).toBe("allow")
         expect(PermissionNext.evaluate("task", "code-reviewer", ruleset).action).toBe("deny")
 
         // Verify other tool permissions
@@ -247,7 +247,7 @@ describe("permission.task with real config files", () => {
         expect(disabled.has("bash")).toBe(false)
         expect(disabled.has("edit")).toBe(false)
         // task is NOT disabled because disabled() uses findLast, and the last rule
-        // matching "task" permission is {pattern: "general", action: "allow"}, not pattern: "*"
+        // matching "task" permission is {pattern: "recon", action: "allow"}, not pattern: "*"
         expect(disabled.has("task")).toBe(false)
       },
     })
@@ -259,7 +259,7 @@ describe("permission.task with real config files", () => {
       config: {
         permission: {
           task: {
-            general: "allow",
+            recon: "allow",
             "code-reviewer": "allow",
             "*": "deny",
           },
@@ -273,7 +273,7 @@ describe("permission.task with real config files", () => {
         const ruleset = PermissionNext.fromConfig(config.permission ?? {})
 
         // Last matching rule wins - "*" deny is last, so all agents are denied
-        expect(PermissionNext.evaluate("task", "general", ruleset).action).toBe("deny")
+        expect(PermissionNext.evaluate("task", "recon", ruleset).action).toBe("deny")
         expect(PermissionNext.evaluate("task", "code-reviewer", ruleset).action).toBe("deny")
         expect(PermissionNext.evaluate("task", "unknown", ruleset).action).toBe("deny")
 
@@ -292,7 +292,7 @@ describe("permission.task with real config files", () => {
         permission: {
           task: {
             "*": "deny",
-            general: "allow",
+            recon: "allow",
           },
         },
       },
@@ -303,13 +303,13 @@ describe("permission.task with real config files", () => {
         const config = await Config.get()
         const ruleset = PermissionNext.fromConfig(config.permission ?? {})
 
-        // Evaluate uses findLast - "general" allow comes after "*" deny
-        expect(PermissionNext.evaluate("task", "general", ruleset).action).toBe("allow")
+        // Evaluate uses findLast - "recon" allow comes after "*" deny
+        expect(PermissionNext.evaluate("task", "recon", ruleset).action).toBe("allow")
         // Other agents still denied by the earlier "*" deny
         expect(PermissionNext.evaluate("task", "code-reviewer", ruleset).action).toBe("deny")
 
         // disabled() uses findLast and checks if the last rule has pattern: "*" with action: "deny"
-        // In this case, the last rule is {pattern: "general", action: "allow"}, not pattern: "*"
+        // In this case, the last rule is {pattern: "recon", action: "allow"}, not pattern: "*"
         // So the task tool is NOT disabled (even though most subagents are denied)
         const disabled = PermissionNext.disabled(["task"], ruleset)
         expect(disabled.has("task")).toBe(false)

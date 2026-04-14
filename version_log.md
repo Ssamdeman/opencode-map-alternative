@@ -1,4 +1,16 @@
 {
+  "version": "0.4.2",
+  "date": "2026-04-14",
+  "focus": "Agent Infrastructure Output Hardening",
+  "changes": [
+    "Enforced explicit WriteTool usage for pentest findings across Recon, Explorer, Coder, and Report sub-agents, explicitly prohibiting raw bash echo/redirect usage to prevent JSON corruption.",
+    "Disabled the general-purpose 'general' agent from the orchestration logic to narrow mission scope.",
+    "Removed 'general' native agent definition from agent.ts and updated Router prompting rules to restrict dispatch only to specialized sub-agents."
+  ]
+}
+
+
+{
   "version": "0.4.1",
   "date": "2026-04-14",
   "focus": "Benchmark Findings Snapshot Removal",

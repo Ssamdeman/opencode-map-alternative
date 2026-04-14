@@ -210,19 +210,22 @@ export const SessionRoutes = lazy(() =>
           })
 
           // 4. Sanitize & Parse
-          const text = await result.text
-          const jsonMatch = text.match(/\{[\s\S]*\}/)
-          const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json\n?|\n?```/g, "").trim()
+          const rawText = await result.text
+          const start = rawText.indexOf("{")
+          const end = rawText.lastIndexOf("}")
+          const cleanText = (start !== -1 && end !== -1 && end > start)
+            ? rawText.substring(start, end + 1)
+            : rawText.replace(/```json\n?|\n?```/g, "").trim()
 
           try {
             const json = JSON.parse(cleanText)
             return c.json(json)
           } catch (e) {
-            log.error("Failed to parse AI response", { text, error: e })
+            log.error("Failed to parse AI response", { text: rawText, error: e })
             throw new Error("Failed to parse AI response")
           }
         } catch (e) {
-          console.error("Engagement Generation Error:", e)
+          log.error("Engagement Generation Error:", { error: e })
           return c.json({ error: e instanceof Error ? e.message : String(e) }, 500)
         }
       },

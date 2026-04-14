@@ -1,4 +1,17 @@
 {
+  "version": "0.4.0",
+  "date": "2026-04-09",
+  "focus": "AI Engagement Auto-Fill Hardening",
+  "changes": [
+    "Implemented automatic UX recovery for engagement auto-fill: TUI now returns to the main form on failure instead of stalling in the generator dialog.",
+    "Enhanced error clarity in TUI by parsing specific server-side error messages (e.g., 'Failed to parse AI response') from the response body.",
+    "Hardened server-side JSON extraction using robust string indexing to find the outermost braces, effectively filtering AI chatter and markdown wrapping.",
+    "Integrated non-JSON response safety in the TUI fetch pipeline to prevent secondary crashes when parsing error payloads from network proxies."
+  ]
+}
+
+
+{
   "version": "0.3.9",
   "date": "2026-04-08",
   "focus": "Pentest Agent Prompt Tool Priority & Fallback",

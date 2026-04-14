@@ -51,12 +51,19 @@ export function DialogEngagementGenerate(props: {
 
             const [res] = await Promise.all([fetchPromise, delayPromise])
 
-            if (!res.ok) {
-                throw new Error(`Server returned ${res.status}`)
+            // 3. Process Result
+            let json: any
+            try {
+                json = await res.json()
+            } catch (e) {
+                if (!res.ok) throw new Error(`Server returned ${res.status} (non-JSON)`)
+                throw e
             }
 
-            // 3. Process Result
-            const json = await res.json()
+            if (!res.ok) {
+                throw new Error(json.error || `Server returned ${res.status}`)
+            }
+
             const merged = {
                 ...props.currentValues,
                 name: json.name || props.currentValues.name,
@@ -70,11 +77,9 @@ export function DialogEngagementGenerate(props: {
             props.onSuccess(merged)
 
         } catch (e) {
-            console.error("AI Auto-Fill failed", e)
             toast.show({ variant: "error", message: `AI Auto-Fill failed: ${e instanceof Error ? e.message : String(e)}` })
-            // On error, stay in dialog or cancel?
-            // Usually stay so they can try again or cancel.
-            setIsLoading(false)
+            // Auto-return to form so they can continue manually
+            props.onCancel()
         }
     }
 

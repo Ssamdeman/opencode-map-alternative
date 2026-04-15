@@ -26,7 +26,7 @@ import { interpretPentestResult } from "./command-semantics"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
-const PENTEST_BACKGROUND_BUDGET_MS = 30_000
+const PENTEST_BACKGROUND_BUDGET_MS = 120_000
 const PENTEST_PROGRESS_INTERVAL_MS = 3000
 
 export const log = Log.create({ service: "bash-tool" })

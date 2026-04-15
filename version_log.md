@@ -1,4 +1,16 @@
 {
+  "version": "0.4.5",
+  "date": "2026-04-15",
+  "focus": "BashTool Debug Command Timeout Hardening",
+  "changes": [
+    "Fixed a critical bug where long-running PowerShell prompts caused the background 'debug pwd' command to time out and overwrite the actual command's successful output with an error message.",
+    "Isolated the debug pwd execution inside its own try/catch block to silently ignore timeouts and preserve the true command result.",
+    "Increased the debug pwd timeout from 5 seconds to 15 seconds to reduce false-positive timeouts on slow or highly customized shells."
+  ]
+}
+
+
+{
   "version": "0.4.4",
   "date": "2026-04-14",
   "focus": "findings.json Schema Migration & Sub-agent Lesson Tracking",

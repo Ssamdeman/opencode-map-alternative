@@ -1,3 +1,292 @@
+{
+  "version": "0.4.5",
+  "date": "2026-04-15",
+  "focus": "BashTool Debug Command Timeout Hardening",
+  "changes": [
+    "Fixed a critical bug where long-running PowerShell prompts caused the background 'debug pwd' command to time out and overwrite the actual command's successful output with an error message.",
+    "Isolated the debug pwd execution inside its own try/catch block to silently ignore timeouts and preserve the true command result.",
+    "Increased the debug pwd timeout from 5 seconds to 15 seconds to reduce false-positive timeouts on slow or highly customized shells."
+  ]
+}
+
+
+{
+  "version": "0.4.4",
+  "date": "2026-04-14",
+  "focus": "findings.json Schema Migration & Sub-agent Lesson Tracking",
+  "changes": [
+    "Updated scaffolded findings.json template to use '{ \"findings\": [], \"lessons\": [] }', completely removing the legacy engagement object and activity_log array.",
+    "Updated all 8 pentest sub-agent prompts (recon, explorer, coder, report in .txt and .md) to discard activity_log and instead append to 'lessons[]' for tracking mistakes and fixes.",
+    "Restructured agent prompt instructions to append findings continuously during long-running tasks and limited schema output length to 1-2 lines of technical essence.",
+    "Updated the Router orchestration prompt to read and evaluate 'lessons[]' alongside findings, uniquely passing relevant lessons downward during sub-agent dispatch so they do not repeat past mistakes."
+  ]
+}
+
+
+{
+  "version": "0.4.3",
+  "date": "2026-04-14",
+  "focus": "Pentest Sub-agent Strict Dispatch & Prompt NLP Standardization",
+  "changes": [
+    "Replaced string literal 'WriteTool' with natural language 'the write tool' across all 8 sub-agent prompts (.txt and .md) to standardize phrasing and reduce JSON schema confusion.",
+    "Completely excised the legacy 'explore' agent (codebase search agent) from routing dispatch.",
+    "Removed 'explore' native agent definition from agent.ts and updated TUI prompt dialog configurations.",
+    "Hardened Router prompt rules to explicitly ban dispatching to 'general' or 'explore', tightly scoping execution solely to 'recon', 'explorer', 'coder', and 'report'."
+  ]
+}
+
+
+{
+  "version": "0.4.2",
+  "date": "2026-04-14",
+  "focus": "Agent Infrastructure Output Hardening",
+  "changes": [
+    "Enforced explicit WriteTool usage for pentest findings across Recon, Explorer, Coder, and Report sub-agents, explicitly prohibiting raw bash echo/redirect usage to prevent JSON corruption.",
+    "Disabled the general-purpose 'general' agent from the orchestration logic to narrow mission scope.",
+    "Removed 'general' native agent definition from agent.ts and updated Router prompting rules to restrict dispatch only to specialized sub-agents."
+  ]
+}
+
+
+{
+  "version": "0.4.1",
+  "date": "2026-04-14",
+  "focus": "Benchmark Findings Snapshot Removal",
+  "changes": [
+    "Removed the findings.json snapshot tracking mechanism (findings-before-*.json / findings-after-*.json) from benchmark.ts."
+  ]
+}
+
+
+{
+  "version": "0.4.0",
+  "date": "2026-04-09",
+  "focus": "AI Engagement Auto-Fill Hardening",
+  "changes": [
+    "Implemented automatic UX recovery for engagement auto-fill: TUI now returns to the main form on failure instead of stalling in the generator dialog.",
+    "Enhanced error clarity in TUI by parsing specific server-side error messages (e.g., 'Failed to parse AI response') from the response body.",
+    "Hardened server-side JSON extraction using robust string indexing to find the outermost braces, effectively filtering AI chatter and markdown wrapping.",
+    "Integrated non-JSON response safety in the TUI fetch pipeline to prevent secondary crashes when parsing error payloads from network proxies."
+  ]
+}
+
+
+{
+  "version": "0.3.9",
+  "date": "2026-04-08",
+  "focus": "Pentest Agent Prompt Tool Priority & Fallback",
+  "changes": [
+    "Synchronized a strict network tool priority directive across all 10 pentest agent prompt sources (Router, Recon, Explorer, Coder, Report) in both .md and .txt formats.",
+    "Enforced mandatory use of MCP 'kali-pentest' tools for all network-related operations (nmap, gobuster, curl, etc.) to ensure structured result parsing.",
+    "Implemented explicit fallback instructions for agents to use local OS-native commands via BashTool if the MCP server is unreachable or down.",
+    "Simplified agent decision-making by restricting BashTool primarily to local filesystem operations and text processing unless as a network fallback.",
+    "Synchronized Router planning logic to prioritize structured MCP capabilities when assigning tasks to sub-agents."
+  ]
+}
+
+
+{
+  "version": "0.3.8",
+  "date": "2026-04-08",
+  "focus": "BashTool Real-time Progress Streaming",
+  "changes": [
+    "Implemented real-time stdout streaming for BashTool tasks, allowing pentest agents to see intermediate results during long-running commands.",
+    "Integrated a throttled onProgress callback (every 3 seconds) into PtySession and ShellSession polling loops to yield partial command output.",
+    "Updated BashTool to emit 'streaming: true' metadata blocks, ensuring agent context is continuously updated without waiting for command completion or background detachment.",
+    "Synchronized partial output cleaning across Windows and Unix sessions, including ANSI stripping and sensitive prompt filtering for streamed data."
+  ]
+}
+
+
+{
+  "version": "0.3.7",
+  "date": "2026-04-08",
+  "focus": "BashTool Command Semantics Interpretation",
+  "changes": [
+    "Created a new 'command-semantics.ts' module to intelligently interpret pentest tool output, distinguishing between genuine failures and expected non-zero exits (e.g., grep finding no matches).",
+    "Transitioned from strict numerical exit-code-only evaluations to stdout content analysis; tools producing meaningful payload data are now frequently pardoned despite non-zero exit codes.",
+    "Integrated semantic logic into BashTool specifically for pentest agents, suppressing 'Exit code: N' UI spam on expected behaviors to eliminate false-positive agent retries.",
+    "Added a new 'isExpectedExit' boolean metadata flag to tool output payloads without overwriting the native integer 'exit' code."
+  ]
+}
+
+
+{
+  "version": "0.3.6",
+  "date": "2026-04-08",
+  "focus": "BashTool Proactive Background Execution",
+  "changes": [
+    "Implemented non-blocking background execution for long-running pentest commands via a new 'run_in_background' parameter in BashTool.",
+    "Integrated a 30-second 'PENTEST_BACKGROUND_BUDGET' that automatically detaches commands if they exceed the time threshold, preventing agent blocking during recon/scanning.",
+    "Refactored PtySession and ShellSession with a .detach() mechanism that orphans time-intensive tasks while immediately spawning fresh, interactive sessions for continued agent work.",
+    "Added persistent background logging to '.opencode/shared-resources/bg-tasks/' with timestamps and session tracking.",
+    "Updated all 5 pentest agent prompts (Router, Recon, Explorer, Coder, Report) in both .md and .txt formats with bg-task monitoring and orchestration logic.",
+    "Hardened Router logic to track background tasks log paths and verify completion status before proceeding with dependent plan steps."
+  ]
+}
+
+
+{
+  "version": "0.3.5",
+  "date": "2026-04-07",
+  "focus": "Transparent Shell Timeout Recovery in BashTool",
+  "changes": [
+    "Added a retry loop extending the 'bash' command execution to a maximum of 5 attempts to cleanly handle timeouts transparently.",
+    "Added a 30-second delay between retry attempts for timed out commands.",
+    "Integrated a consecutive timeout tracker per 'sessionID'. When 3 consecutive timeouts occur, the current underlying 'PtySession' or 'ShellSession' is automatically killed and structurally replaced.",
+    "Injected a fallback warning metadata tag 'WARNING: Shell was reset after repeated timeouts' that alerts agents contextually without failing tasks manually."
+  ]
+}
+
+
+{
+  "version": "0.3.4",
+  "date": "2026-04-06",
+  "focus": "Compiled Binary Pentest Asset Embedding & Scaffolding Target Fix",
+  "changes": [
+    "Fixed a critical bug where pentest agent files were missing from the compiled binary because dynamic directory reads (via fs.readdir) are unaware of implicit assets. Used Bun.Glob to add src/agent/pentest/ recursively directly into Bun.build entrypoints.",
+    "Modified scaffold() invocation in session.ts from scaffold(Instance.worktree) to scaffold(Instance.directory). This guarantees that new engagements deployed in non-git directories write .opencode folders locally rather than misidentifying workspace roots."
+  ]
+}
+
+
+{
+  "version": "0.3.3",
+  "date": "2026-04-06",
+  "focus": "Subagent PTY Inline Input (INCOMPLETE / UNTESTED)",
+  "changes": [
+    "Added POST /pty/:ptyID/input API route to stream text directly to a PTY session's stdin.",
+    "Added GET /pty/by-session/:sessionID API route to map sub-agent sessions to their underlying PTY instances.",
+    "Pivoted from an unsuccessful full-screen PTY takeover approach to an inline TUI input field model.",
+    "Modified TUI keyboard event handlers to route keystrokes into the new inline terminal input.",
+    "WARNING: This implementation is currently INCOMPLETE and UNTESTED. Interaction blockers may still exist preventing full bidirectional communication."
+  ]
+}
+
+
+{
+  "version": "0.3.2",
+  "date": "2026-04-06",
+  "focus": "Subagent findings.json Write Fixes",
+  "changes": [
+    "Fixed missing YAML frontmatter delimiter (---) in recon.md which caused the agent's permission ruleset to fail to load.",
+    "Added explicit path resolution notes to all 4 subagent prompts in both their .txt and .md formats.",
+    "Instructed agents to use base relative paths (e.g. .opencode/shared-resources/findings.json) without prefixing workspace subdirectories like packages/, matching WriteTool's runtime resolution behavior."
+  ]
+}
+
+
+{
+  "version": "0.3.1",
+  "date": "2026-04-01",
+  "focus": "Skills Appearing as Agents Bug Fix",
+  "changes": [
+    "Root cause: copyRecursive for agents pointed at the entire pentest/ source dir, which contains skills/, tools/, shared-resources/ subdirs. These landed inside .opencode/agents/. AGENT_GLOB is recursive ({agent,agents}/**/*.md) so it swept up SKILL.md files nested under agents/skills/ and registered them as agents.",
+    "Fix: replaced the agents copyFiles block with a flat-only copyAgents helper that uses readdir() and filters to .md files that are plain files — directories like skills/ and tools/ are skipped entirely.",
+    "Result: .opencode/agents/ now contains only the 5 agent definition files (router, recon, explorer, coder, report). Skills remain isolated in .opencode/skills/.",
+    "Note: existing engagements scaffolded before this fix must manually delete .opencode/agents/skills/ and .opencode/agents/tools/ to clear stale data."
+  ]
+}
+
+
+{
+  "version": "0.3.0",
+  "date": "2026-04-01",
+  "focus": "Skill Cache Invalidation After Scaffold",
+  "changes": [
+    "Root cause identified: Skill.state() is a one-time lazy cache (Instance.state). It evaluates on session init — before scaffold runs — and freezes an empty result. Agents always saw 0 skills even after .opencode/skills/ was populated.",
+    "Added State.invalidate(key, init) to state.ts: surgically deletes a single cache entry by instance key + init function reference without disturbing Config, ToolRegistry, or other state.",
+    "Added Skill.invalidate() to skill.ts: calls State.invalidate with the current Instance.directory and the skill state init ref.",
+    "scaffold() in session.ts now calls Skill.invalidate() after all file copies complete — forcing a fresh disk scan on the next skill() tool call."
+  ]
+}
+
+
+{
+  "version": "0.2.9",
+  "date": "2026-04-01",
+  "focus": "Agent Prompt Skill Invocation Sync",
+  "changes": [
+    "Audited all 5 pentest agent prompts (router, recon, explorer, coder, report) in both prompt/*.txt and pentest/*.md locations.",
+    "Router: was missing skill invocation entirely — added skill(\"scope-checker\") as step 1 of Start each task in both router.txt and router.md.",
+    "Recon: was missing scope-checker and recon-patterns from skill list — added both with explicit call order: scope-checker first, then recon-patterns, then nmap-recon, then OS-specific skill.",
+    "Explorer, Coder, Report: already correctly instructed skill loading — no changes needed."
+  ]
+}
+
+
+{
+  "version": "0.2.8",
+  "date": "2026-04-01",
+  "focus": "Subagent shared-resources Permission Hardening",
+  "changes": [
+    "All pentest subagents (recon, explorer, coder, report) now have explicit read/write/edit allow rules scoped to .opencode/shared-resources/* — prevents permission denials when appending to findings.json.",
+    "Router: added write + edit allow for shared-resources (was read-only before).",
+    "Coder: shared-resources edit is allow while all other edit paths remain ask.",
+    "Added temporary [DIAG] log in Skill.state() to emit resolved skill paths and configDirs at runtime — marked for removal after verification."
+  ]
+}
+
+
+{
+  "version": "0.2.7",
+  "date": "2026-04-01",
+  "focus": "Scaffold copyFiles Silent-Failure Fix",
+  "changes": [
+    "Replaced the flat 2-level copyFiles() loop in scaffold() with a full copyRecursive() helper — handles arbitrary directory depth so skill subdirs with scripts/ or resources/ are never truncated.",
+    "Silent early-return on missing source dir replaced with a warning toast + log.warn showing the actual unresolved path — makes import.meta.dir resolution failures visible at runtime.",
+    "Error catch now includes sourceDir and targetDir in the log entry for full path context.",
+    "log.info emitted at the start of each copyFiles call so resolved paths appear in the dev console before any copy attempt."
+  ]
+}
+
+
+{
+  "version": "0.2.6-BUGFIX",
+  "date": "2026-03-24",
+  "focus": "MCP Tool Timeout Resolution",
+  "changes": [
+    "Resolved MCP tool timeout issues (McpError -32001) for long-running pentest tools (e.g., nmap).",
+    "Documented that users can configure a custom `timeout` (in milliseconds, e.g., 300000 for 5 minutes) per MCP server in `opencode.json` to override the default 60-second limit."
+  ]
+}
+
+
+{
+  "version": "0.2.6",
+  "date": "2026-03-24",
+  "focus": "Subagent MCP Tool Execution Integration",
+  "changes": [
+    "Resolved MCP tool access blocks for subagents by updating the native permission baseline (`\"*\": \"allow\"`) for all pentest agents.",
+    "Verified full end-to-end execution capability of external MCP tools (like kali-pentest) directly within subagent processes.",
+    "Identified and documented that long-running MCP tool executions (like exhaustive nmap scans) will currently trigger strict protocol timeouts (`McpError -32001`) if they exceed 60 seconds."
+  ]
+}
+
+
+{
+  "version": "0.2.5",
+  "date": "2026-03-24",
+  "focus": "Engagement Setup Stability & UX",
+  "changes": [
+    "Added automatic scaffolding check when an engagement session is loaded in the TUI: automatically triggers setup and shows a loading animation if .opencode/shared-resources/findings.json is missing.",
+    "Fixed a silent crash in the session load by substituting Instance.worktree (backend-only context) with sync.data.path.worktree.",
+    "Corrected widespread invalid permission schemas (`\"*\": true` changed to `\"*\": allow`) in all native pentest agent templates to satisfy SDK Action schema validation."
+  ]
+}
+
+
+{
+  "version": "0.2.4-BUGFIX",
+  "date": "2026-03-19",
+  "focus": "Pentest Agent Auto-Load on Clone",
+  "changes": [
+    "Converted pentest agents (Router, Recon, Explorer, Coder, Report) into fully hardcoded native agents inside agent.ts so they always load independently of the file system.",
+    "Router is now visible in the agent Tab cycle out-of-the-box on fresh clones.",
+    "Sub-agents (Recon, Explorer, Coder, Report) are native but natively hidden from the Tab cycle to keep the UI clean, while still being dispatchable by Router.",
+    "Removed the previous config.ts loadPentest() directory scoping workaround as it relied on file existence inside packages/opencode/src/agent/pentest/."
+  ]
+}
 
 
 {

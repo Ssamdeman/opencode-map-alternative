@@ -55,7 +55,7 @@ Trust the expert. Give context and intent, not commands.
 
 If a subagent comes back with:
 - No new findings added to findings.json
-- No meaningful lessons and it's okay to be empty
+- No meaningful lessons and it's okay to empty
 - Same information you already had
 
 That agent is stuck. Options:

@@ -7,6 +7,8 @@ import { Instance } from "../project/instance"
 import { Truncate } from "../tool/truncation"
 import { Auth } from "../auth"
 import { ProviderTransform } from "../provider/transform"
+import fs from "fs"
+import { fileURLToPath } from "url"
 
 import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
@@ -14,9 +16,10 @@ import PROMPT_ENGAGEMENT from "./prompt/engagement.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 
-// Pentest native agents
-import PROMPT_ROUTER from "./prompt/router.txt"
-import PROMPT_RECON from "./prompt/recon.txt"
+// Pentest native agents — router and recon read at runtime to bypass transpiler cache
+const promptDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "prompt")
+const PROMPT_ROUTER = fs.readFileSync(path.join(promptDir, "router.txt"), "utf-8")
+const PROMPT_RECON = fs.readFileSync(path.join(promptDir, "recon.txt"), "utf-8")
 import PROMPT_EXPLORER from "./prompt/explorer.txt"
 import PROMPT_CODER from "./prompt/coder.txt"
 import PROMPT_REPORT from "./prompt/report.txt"

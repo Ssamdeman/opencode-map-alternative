@@ -28,6 +28,8 @@ import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
 import { Transparent } from "./transparent"
 import { SessionPromptCache, type PromptKey } from "./prompt-cache"
+import { Bus } from "@/bus"
+import { TuiEvent } from "@/cli/cmd/tui/event"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -117,6 +119,14 @@ export namespace LLM {
         .filter((x) => x)
         .join("\n"),
     )
+
+    // DIAG-L1: temporary — remove after verification
+    Bus.publish(TuiEvent.ToastShow, {
+      title: "DIAG-L1",
+      message: `[DIAG-L1] ${system[0]?.substring(0, 80)}`,
+      variant: "info",
+      duration: 8000,
+    }).catch(() => {})
 
     const header = system[0]
     const original = clone(system)

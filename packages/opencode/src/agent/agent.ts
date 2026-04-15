@@ -9,6 +9,8 @@ import { Auth } from "../auth"
 import { ProviderTransform } from "../provider/transform"
 import fs from "fs"
 import { fileURLToPath } from "url"
+import { Bus } from "@/bus"
+import { TuiEvent } from "@/cli/cmd/tui/event"
 
 import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
@@ -18,11 +20,13 @@ import PROMPT_TITLE from "./prompt/title.txt"
 
 // Pentest native agents — router and recon read at runtime to bypass transpiler cache
 const promptDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "prompt")
+// DIAG-PATH: temporary — remove after verification
+setTimeout(() => Bus.publish(TuiEvent.ToastShow, { title: "DIAG-PATH", message: `[DIAG-PATH] ${promptDir}`, variant: "info", duration: 10000 }).catch(() => {}), 2000)
 const PROMPT_ROUTER = fs.readFileSync(path.join(promptDir, "router.txt"), "utf-8")
 const PROMPT_RECON = fs.readFileSync(path.join(promptDir, "recon.txt"), "utf-8")
-import PROMPT_EXPLORER from "./prompt/explorer.txt"
-import PROMPT_CODER from "./prompt/coder.txt"
-import PROMPT_REPORT from "./prompt/report.txt"
+const PROMPT_EXPLORER = fs.readFileSync(path.join(promptDir, "explorer.txt"), "utf-8")
+const PROMPT_CODER = fs.readFileSync(path.join(promptDir, "coder.txt"), "utf-8")
+const PROMPT_REPORT = fs.readFileSync(path.join(promptDir, "report.txt"), "utf-8")
 import { PermissionNext } from "@/permission/next"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@/global"

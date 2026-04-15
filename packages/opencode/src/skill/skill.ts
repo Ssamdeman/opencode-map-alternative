@@ -12,6 +12,7 @@ import { Filesystem } from "@/util/filesystem"
 import { Flag } from "@/flag/flag"
 import { Bus } from "@/bus"
 import { Session } from "@/session"
+import { TuiEvent } from "@/cli/cmd/tui/event"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
@@ -114,16 +115,21 @@ export namespace Skill {
     }
 
     // Scan .opencode/skill/ directories
-    for (const dir of await Config.directories()) {
+    const dirs = await Config.directories()
+    Bus.publish(TuiEvent.ToastShow, { message: `[DIAG-SKILL] configDirs: ${JSON.stringify(dirs)}`, variant: "warning" })
+    const matchedPaths: string[] = []
+    for (const dir of dirs) {
       for await (const match of OPENCODE_SKILL_GLOB.scan({
         cwd: dir,
         absolute: true,
         onlyFiles: true,
         followSymlinks: true,
       })) {
+        matchedPaths.push(match)
         await addSkill(match)
       }
     }
+    Bus.publish(TuiEvent.ToastShow, { message: `[DIAG-SKILL] matched paths: ${JSON.stringify(matchedPaths)}`, variant: "warning" })
 
     // Scan additional skill paths from config
     const config = await Config.get()
@@ -144,14 +150,12 @@ export namespace Skill {
       }
     }
 
-    // TEMP DIAGNOSTIC — remove after verifying skill paths at runtime
     const entries = Object.values(skills)
     log.info("[DIAG] skill scan complete", {
       count: entries.length,
       paths: entries.map((s) => s.location),
       configDirs: await Config.directories(),
     })
-    // END TEMP DIAGNOSTIC
 
     return skills
   })

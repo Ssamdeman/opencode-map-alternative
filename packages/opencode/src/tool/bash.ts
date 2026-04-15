@@ -293,12 +293,17 @@ export const BashTool = Tool.define("bash", async () => {
           const result = cmdOutput.data as string
           
           Benchmark.bashCommand(ctx.sessionID, ctx.agent ?? "unknown")
-          // Debug: Get current working directory for visibility
-          const debugPwd = await session.execute(
-            process.platform === "win32" ? "(Get-Location).Path" : "pwd",
-            5000
-          )
-          output = `${result}\n[MAP:DEBUG] cwd=${debugPwd.trim()}`
+          output = result
+          // Debug: Get current working directory — failure must never corrupt output
+          try {
+            const debugPwd = await session.execute(
+              process.platform === "win32" ? "(Get-Location).Path" : "pwd",
+              15000
+            )
+            output = `${result}\n[MAP:DEBUG] cwd=${debugPwd.trim()}`
+          } catch {
+            // Silently ignore — the actual command already succeeded
+          }
           
           // Success! Reset consecutive timeout counter
           timeoutCounters.set(ctx.sessionID, 0)

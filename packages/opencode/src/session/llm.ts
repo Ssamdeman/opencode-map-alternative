@@ -1,4 +1,6 @@
 import os from "os"
+import fs from "fs"
+import path from "path"
 import { Installation } from "@/installation"
 import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
@@ -77,18 +79,36 @@ export namespace LLM {
     // DIAGNOSTIC: trace cache lookup
 
 
+    // Check for engagement-folder prompt override: <directory>/.opencode/agents/<agentID>.md
+    const engagementPromptPath = path.join(Instance.directory, ".opencode", "agents", `${input.agent.name}.md`)
+    const engagementPrompt = (() => {
+      if (!fs.existsSync(engagementPromptPath)) return undefined
+      try {
+        return fs.readFileSync(engagementPromptPath, "utf-8")
+      } catch (e) {
+        l.warn("failed to read engagement prompt override", { path: engagementPromptPath, error: e })
+        return undefined
+      }
+    })()
+
     const system = []
     system.push(
       [
-        // use agent prompt otherwise provider prompt (or cached override)
+        // Priority: 1) config.toml override (from agent config, not here)
+        //           2) engagement-folder .opencode/agents/<agentID>.md  ← NEW
+        //           3) hardcoded native prompt from agent.ts
+        //           4) cached provider prompt
+        //           5) provider default
         // For Codex sessions, skip SystemPrompt.provider() since it's sent via options.instructions
-        ...(input.agent.prompt
-          ? [input.agent.prompt]
-          : cachedSystemPrompt
-            ? [cachedSystemPrompt]
-            : isCodex
-              ? []
-              : SystemPrompt.provider(input.model)),
+        ...(engagementPrompt
+          ? [engagementPrompt]
+          : input.agent.prompt
+            ? [input.agent.prompt]
+            : cachedSystemPrompt
+              ? [cachedSystemPrompt]
+              : isCodex
+                ? []
+                : SystemPrompt.provider(input.model)),
         // any custom prompt passed into this call
         ...input.system,
         // any custom prompt from last user message

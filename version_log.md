@@ -1,4 +1,19 @@
 {
+  "version": "0.4.6",
+  "date": "2026-04-15",
+  "focus": "Engagement-Folder Prompt Override — Always See Latest Prompts",
+  "changes": [
+    "Fixed bug where .opencode/agents/<agentID>.md files in the engagement folder were never read by the prompt pipeline. The hardcoded native .txt prompt always won, making per-engagement prompt customization impossible.",
+    "Modified session/llm.ts to probe <Instance.directory>/.opencode/agents/<agentID>.md before resolving Layer 1. If the file exists, its content replaces the hardcoded prompt for that LLM call.",
+    "Priority order is now: config.toml override → engagement .md file (NEW) → hardcoded native .txt from agent.ts → prompt cache → provider default.",
+    "Uses Instance.directory (invocation path) not Instance.worktree to correctly scope the check to the active engagement folder.",
+    "Synchronous fs.readFileSync used intentionally — executes once per LLM call, not in a hot loop.",
+    "Falls back silently to the hardcoded prompt if the file is absent, unreadable, or corrupted — logged via log.warn without throwing."
+  ]
+}
+
+
+{
   "version": "0.4.5",
   "date": "2026-04-15",
   "focus": "BashTool Debug Command Timeout Hardening",

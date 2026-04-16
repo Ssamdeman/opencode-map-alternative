@@ -1,4 +1,21 @@
 {
+  "version": "0.4.9",
+  "date": "2026-04-16",
+  "focus": "Per-Agent Model Hint in Scaffolded .md Files",
+  "changes": [
+    "Added commented-out '# model: provider/model-id' hint to all 5 pentest agent .md frontmatter (router, recon, explorer, coder, report). Users uncomment and paste a value from available-models.json to pin a specific model per agent per engagement.",
+    "No runtime changes — comment is ignored by gray-matter parser. Only affects newly scaffolded engagements (existing .opencode/agents/ files untouched by scaffold skip-if-exists)."
+  ],
+  "needed": [
+    "Hot-reload: config changes mid-session require restart — no file watcher on .opencode/agents/*.md yet.",
+    "TUI model picker: no UI for assigning models to agents — manual .md edit only.",
+    "Validation: no check that the pasted model string exists in the user's provider list.",
+    "Backfill: existing engagements must manually add the comment line."
+  ]
+}
+
+
+{
   "version": "0.4.8",
   "date": "2026-04-16",
   "focus": "Recon Camera Mode + Explorer Analysis Ownership + Explorer ↔ Recon Loop",

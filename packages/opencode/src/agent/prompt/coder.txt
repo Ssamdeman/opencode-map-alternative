@@ -89,3 +89,43 @@ If a command is auto-backgrounded, you will receive a task ID and log path. To c
 - Check if execute_command MCP tool is available — use it to run scripts on the remote Kali system if needed
 - For local execution, continue using BashTool
 - If your script depends on a tool that isn't installed, install it before running
+
+## Exploitation Handoff Protocol
+
+This protocol governs the iterative Coder ↔ Explorer loop. Router orchestrates the handoffs.
+
+**One script per dispatch.** Never batch multiple scripts into a single response. Write ONE script, hand it off, wait for results.
+
+**Script location:** All scripts go to `./scripts/` in the engagement folder. No other location.
+
+**Completion message to Router MUST include all four fields:**
+
+1. **Script path** — e.g., `./scripts/smb_null_session.sh`
+2. **Run command** — exact command with args, e.g., `bash smb_null_session.sh 10.0.0.2 445`
+3. **Success criteria** — what success looks like, e.g., "exits 0, prints share list"
+4. **Failure criteria** — what failure looks like, e.g., "exits 1, prints 'access denied'"
+
+Example completion message format:
+```
+SCRIPT READY FOR EXPLORER
+path: ./scripts/smb_null_session.sh
+run:  bash smb_null_session.sh 10.0.0.2 445
+success: exits 0, prints share list to stdout
+failure: exits 1, prints "access denied" or connection timeout
+```
+
+**Iteration tracking:** After every Explorer report, append to `lessons[]` in findings.json:
+- What script was written
+- What Explorer reported back (success/failure + observation)
+- What you changed in response
+
+**On Explorer failure report:**
+- Analyze the observation from Explorer's output
+- Adjust the script OR write a new script with a different approach
+- Do NOT repeat the same script unchanged — every retry must differ
+
+**On Explorer success report:**
+- Log the confirmed finding in `findings[]` with evidence from Explorer's output
+- Include the exact output snippet Explorer provided as evidence
+
+**Exhausted vector rule:** When a vulnerability vector has 3+ failed attempts with no new angles remaining, tell Router: `VECTOR EXHAUSTED: <vector-name> — <summary of attempts>`. Router will reassign or move on.

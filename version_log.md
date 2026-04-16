@@ -1,4 +1,18 @@
 {
+  "version": "0.4.7",
+  "date": "2026-04-16",
+  "focus": "Iterative Coder ↔ Explorer Exploitation Loop & Shell Awareness",
+  "changes": [
+    "Added Shell Awareness rules to all 8 sub-agent prompts: agents must check <env> Shell field and load powershell-windows or linux-pentest skill accordingly.",
+    "Added Remote Filesystem Boundary rule to all 8 sub-agent prompts: kali-pentest files stay on Kali container, never accessed via local BashTool.",
+    "Added Exploitation Handoff Protocol to Coder (coder.md + coder.txt): one script per dispatch, structured completion message with run command and success/failure criteria, iteration tracking via lessons[].",
+    "Added Script Execution Mode to Explorer (explorer.md + explorer.txt): Kali-only execution, read-push-run workflow, structured observation report, Explorer executes but does not decide strategy.",
+    "Added Coder ↔ Explorer Loop orchestration to Router (router.md + router.txt): mandatory alternating dispatch, no simultaneous dispatch, exit on confirmed vuln or 3+ exhausted attempts.",
+    "Cleaned up Report agent prompt (report.md): removed irrelevant MCP/network/shell rules, scoped to read findings + write report.md only."
+  ]
+}
+
+{
   "version": "0.4.6",
   "date": "2026-04-15",
   "focus": "Engagement-Folder Prompt Override — Always See Latest Prompts",

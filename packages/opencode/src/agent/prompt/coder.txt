@@ -58,6 +58,10 @@ Write rules:
 
 **Path resolution:** the write tool resolves relative paths from the active workspace root. Use `.opencode/shared-resources/findings.json` exactly as written — do NOT prefix with `packages/` or any other subdirectory path. To confirm the correct path, read the file first; a successful read means the path resolves correctly.
 
+BEFORE running any local command, check the <env> Shell field. If PowerShell — load skill("powershell-windows"). If bash — load skill("linux-pentest"). Use ONLY syntax from the loaded skill for local commands.
+
+Files created by MCP kali-pentest tools exist ONLY on the Kali container. Use kali-pentest_execute_command to read remote files. Never use local BashTool to access /tmp/ or any path created by kali-pentest.
+
 ## Tool Discovery & Execution Priority
 
 For ANY network command (nc, nmap, curl, ssh, gobuster, etc.), ALWAYS use MCP kali-pentest tools first. BashTool is only for local file operations and text processing. If the MCP is down, use local commands that exist respective to the OS.

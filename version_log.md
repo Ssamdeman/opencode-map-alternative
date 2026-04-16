@@ -1,4 +1,18 @@
 {
+  "version": "0.4.8",
+  "date": "2026-04-16",
+  "focus": "Recon Camera Mode + Explorer Analysis Ownership + Explorer ↔ Recon Loop",
+  "changes": [
+    "Recon prompts (recon.md + recon.txt) rewritten to camera mode: all findings sev:info only, raw tool output only, no CVE analysis, no severity assignment, no speculation.",
+    "Explorer prompts (explorer.md + explorer.txt) gained Analysis & Verification section: Explorer owns all vulnerability analysis, tool-verified evidence required, severity gated by proof, no hallucinated CVEs.",
+    "Explorer prompts gained Targeted Recon Requests section: structured RECON REQUEST format, blocking semantics (stays on current finding until data arrives).",
+    "Explorer rule updated: 'Test one hypothesis at a time' replaced with 'Work ONE attack surface at a time' for sequential analysis.",
+    "Router prompts (router.md + router.txt) gained Explorer ↔ Recon Loop orchestration: RECON REQUEST trigger, structured relay templates, 3-dispatch cap per finding, duplicate detection."
+  ]
+}
+
+
+{
   "version": "0.4.7",
   "date": "2026-04-16",
   "focus": "Iterative Coder ↔ Explorer Exploitation Loop & Shell Awareness",

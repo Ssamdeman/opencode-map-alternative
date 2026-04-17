@@ -26,6 +26,7 @@ import { LLM } from "@/session/llm"
 import { TuiEvent } from "../../cli/cmd/tui/event"
 import { Bus } from "../../bus"
 import { Skill } from "../../skill"
+import { Config } from "../../config/config"
 
 const log = Log.create({ service: "server" })
 
@@ -1378,7 +1379,10 @@ async function scaffold(worktree: string) {
     log.error("Failed to scaffold opencode.json", { error })
   }
 
-  // Bust the skill cache so agents see the newly scaffolded skills immediately
+  // Invalidate caches so agents see the newly scaffolded skills immediately.
+  // Config first: Skill.state() reads Config.directories() internally, so the
+  // directory list must be fresh before the skill re-scan runs.
+  Config.invalidate()
   Skill.invalidate()
-  log.info("scaffold complete — skill cache invalidated")
+  log.info("scaffold complete — config + skill caches invalidated")
 }

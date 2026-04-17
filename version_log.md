@@ -1,4 +1,17 @@
 {
+  "version": "0.5.0",
+  "date": "2026-04-17",
+  "focus": "Skill Loading & State Invalidation Fix",
+  "changes": [
+    "Fixed a critical bug where the skill loader failed to detect scaffolded skills due to a broken cache invalidation mechanism (the prior v0.3.0 fix passed the wrong function reference to the internal Map key).",
+    "Refactored State.create() to return an intersection type with an attached .invalidate() method, closing over the exact state tracking reference by design.",
+    "Added Config.invalidate() to clear cached directories so late-added engagement folders (.opencode) are correctly discovered during skill cache bust.",
+    "Fixed cosmetic bug in tool/skill.ts where 'Available skills:' printed numeric array indices instead of the actual skill names."
+  ]
+}
+
+
+{
   "version": "0.4.9",
   "date": "2026-04-16",
   "focus": "Per-Agent Model Hint in Scaffolded .md Files",

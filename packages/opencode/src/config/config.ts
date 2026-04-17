@@ -1391,4 +1391,10 @@ export namespace Config {
   export async function directories() {
     return state().then((x) => x.directories)
   }
+
+  // Bust the config cache so the next read re-discovers .opencode/ directories from disk.
+  // Must be called before Skill.invalidate() because skills scan Config.directories().
+  export function invalidate() {
+    state.invalidate()
+  }
 }

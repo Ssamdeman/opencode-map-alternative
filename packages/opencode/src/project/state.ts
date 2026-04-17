@@ -9,8 +9,10 @@ export namespace State {
   const log = Log.create({ service: "state" })
   const recordsByKey = new Map<string, Map<any, Entry>>()
 
-  export function create<S>(root: () => string, init: () => S, dispose?: (state: Awaited<S>) => Promise<void>) {
-    return () => {
+  export type StateFn<S> = (() => S) & { invalidate(): void }
+
+  export function create<S>(root: () => string, init: () => S, dispose?: (state: Awaited<S>) => Promise<void>): StateFn<S> {
+    const wrapper = (() => {
       const key = root()
       let entries = recordsByKey.get(key)
       if (!entries) {
@@ -25,7 +27,11 @@ export namespace State {
         dispose,
       })
       return state
+    }) as StateFn<S>
+    wrapper.invalidate = () => {
+      recordsByKey.get(root())?.delete(init)
     }
+    return wrapper
   }
 
   // Invalidate a single cache entry by instance key + init function reference

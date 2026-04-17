@@ -1,6 +1,7 @@
 import os from "os"
 import fs from "fs"
 import path from "path"
+import matter from "gray-matter"
 import { Installation } from "@/installation"
 import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
@@ -86,7 +87,15 @@ export namespace LLM {
     const engagementPrompt = (() => {
       if (!fs.existsSync(engagementPromptPath)) return undefined
       try {
-        return fs.readFileSync(engagementPromptPath, "utf-8")
+        const raw = fs.readFileSync(engagementPromptPath, "utf-8")
+        // Strip YAML frontmatter — use only the markdown body as prompt
+        try {
+          const parsed = matter(raw)
+          return parsed.content.trim() || undefined
+        } catch {
+          // gray-matter failed — fall back to raw content (no worse than before)
+          return raw
+        }
       } catch (e) {
         l.warn("failed to read engagement prompt override", { path: engagementPromptPath, error: e })
         return undefined

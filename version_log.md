@@ -1,4 +1,17 @@
 {
+  "version": "0.5.1",
+  "date": "2026-04-17",
+  "focus": "Skill and Tool Authoring Helpers",
+  "changes": [
+    "Added _PROMPT-SKILL.txt and _PROMPT-TOOL.txt to pentest assets as authoring templates for LLMs.",
+    "Wired session.ts scaffold() to explicitly copy these generic prompt templates into engagement .opencode/skills/ and .opencode/tools/ directories.",
+    "Implemented precise toast notifications ('Prompt Skill: Scaffolded' / 'Prompt Tool: Scaffolded') alongside skip-if-exists idempotency to protect user edits.",
+    "Validated that text files safely bypass both the skill-loader and tool-loader execution globs, preventing parser errors."
+  ]
+}
+
+
+{
   "version": "0.5.0",
   "date": "2026-04-17",
   "focus": "Skill Loading & State Invalidation Fix",

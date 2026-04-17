@@ -1273,6 +1273,40 @@ async function scaffold(worktree: string) {
     path.join(worktree, ".opencode", "agents"),
   )
 
+  // Prompt Skill
+  try {
+    const skillsDirTarget = path.join(worktree, ".opencode", "skills")
+    await fs.mkdir(skillsDirTarget, { recursive: true })
+    const promptSkillDest = path.join(skillsDirTarget, "_PROMPT-SKILL.txt")
+    if (await fs.stat(promptSkillDest).catch(() => false)) {
+      await Bus.publish(TuiEvent.ToastShow, { message: "Prompt Skill: Skipped (exists)", variant: "warning" })
+    } else {
+      const promptSkillSrc = path.resolve(import.meta.dir, "../../agent/pentest/skills/_PROMPT-SKILL.txt")
+      await fs.copyFile(promptSkillSrc, promptSkillDest)
+      await Bus.publish(TuiEvent.ToastShow, { message: "Prompt Skill: Scaffolded", variant: "success" })
+    }
+  } catch (error) {
+    await Bus.publish(TuiEvent.ToastShow, { message: "Failed to scaffold Prompt Skill", variant: "error" })
+    log.error("Failed to scaffold Prompt Skill", { error })
+  }
+
+  // Prompt Tool
+  try {
+    const toolsDirTarget = path.join(worktree, ".opencode", "tools")
+    await fs.mkdir(toolsDirTarget, { recursive: true })
+    const promptToolDest = path.join(toolsDirTarget, "_PROMPT-TOOL.txt")
+    if (await fs.stat(promptToolDest).catch(() => false)) {
+      await Bus.publish(TuiEvent.ToastShow, { message: "Prompt Tool: Skipped (exists)", variant: "warning" })
+    } else {
+      const promptToolSrc = path.resolve(import.meta.dir, "../../agent/pentest/tools/_PROMPT-TOOL.txt")
+      await fs.copyFile(promptToolSrc, promptToolDest)
+      await Bus.publish(TuiEvent.ToastShow, { message: "Prompt Tool: Scaffolded", variant: "success" })
+    }
+  } catch (error) {
+    await Bus.publish(TuiEvent.ToastShow, { message: "Failed to scaffold Prompt Tool", variant: "error" })
+    log.error("Failed to scaffold Prompt Tool", { error })
+  }
+
   // Skills
   await copyFiles(
     path.resolve(import.meta.dir, "../../agent/pentest/skills"),
